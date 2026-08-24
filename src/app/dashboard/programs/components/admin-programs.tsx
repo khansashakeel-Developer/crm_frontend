@@ -38,6 +38,7 @@ const programFields: ModalField[] = [
             { label: "ICF", value: "icf" },
             { label: "Hypnotherapy", value: "hypnotherapy" },
             { label: "Trainer", value: "trainer" },
+            { label: "Business In The Box", value: "business_in_a_box" },
         ]
     },
     { name: "price", label: "Price", type: "input", inputType: "text", placeholder: "2000" },
@@ -248,6 +249,7 @@ export default function AdminPrograms() {
                             {/* Card Actions */}
                             <div className="px-5 py-3 flex items-center gap-2 flex-wrap">
                                 {/* Manage Courses */}
+                                
                                 <button
                                     onClick={() => setManagingCourses(program)}
                                     className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition font-medium"
@@ -303,7 +305,15 @@ export default function AdminPrograms() {
                 onClose={() => setIsAddOpen(false)}
                 title="Add New Program"
                 fields={programFields}
-                onSubmit={(data) => addProgram(data)}
+                onSubmit={(data) => {
+                    const payload = { ...data };
+
+                    if (payload.category === "business_in_a_box") {
+                        delete payload.level;
+                    }
+
+                    addProgram(payload);
+                }}
                 isLoading={isAdding}
                 mode="add"
                 initialValues={{
@@ -334,7 +344,18 @@ export default function AdminPrograms() {
                         duration_weeks: editingProgram.duration_weeks?.toString(),
                         status: editingProgram.status,
                     }}
-                    onSubmit={(data) => updateProgram({ id: editingProgram._id, data })}
+                    onSubmit={(data) => {
+                        const payload = { ...data };
+
+                        if (payload.category === "business_in_a_box") {
+                            delete payload.level;
+                        }
+
+                        updateProgram({
+                            id: editingProgram._id,
+                            data: payload,
+                        });
+                    }}
                     isLoading={isUpdating}
                     mode="edit"
                     zIndex={70}

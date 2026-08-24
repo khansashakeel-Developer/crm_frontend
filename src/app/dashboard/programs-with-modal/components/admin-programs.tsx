@@ -225,10 +225,12 @@ export default function AdminPrograms() {
 
                             {/* Card Stats */}
                             <div className="px-5 py-3 flex items-center gap-4 text-xs text-gray-500 border-b border-gray-50">
-                                <div className="flex items-center gap-1">
-                                    <BookMarked size={12} />
-                                    <span>{program.total_courses} courses</span>
-                                </div>
+                                {program.total_courses && (
+                                    <div className="flex items-center gap-1">
+                                        <BookMarked size={12} />
+                                        <span>{program.total_courses} courses</span>
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-1">
                                     <Users size={12} />
                                     <span>{program.total_students} students</span>
@@ -246,14 +248,16 @@ export default function AdminPrograms() {
 
                             {/* Card Actions */}
                             <div className="px-5 py-3 flex items-center gap-2 flex-wrap">
-                                {/* Manage Courses */}
-                                <button
-                                    onClick={() => setManagingCourses(program)}
-                                    className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition font-medium"
-                                >
-                                    <BookMarked size={12} />
-                                    Courses
-                                </button>
+                                {/* Manage Courses — business_in_a_box pe mat dikhao */}
+                                {program.category !== "business_in_a_box" &&  (
+                                    <button
+                                        onClick={() => setManagingCourses(program)}
+                                        className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition font-medium"
+                                    >
+                                        <BookMarked size={12} />
+                                        Courses
+                                    </button>
+                                )}
 
                                 {/* Manage Batches */}
                                 <button

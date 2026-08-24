@@ -23,7 +23,7 @@ const programFields: ModalField[] = [
   { name: "short_description", label: "Short Description*", type: "input", inputType: "text", placeholder: "Brief description", required: true },
   { name: "description", label: "Description", type: "textarea", placeholder: "Full description..." },
   {
-    name: "level", label: "Level*", type: "select", required: true,
+    name: "level", label: "Level", type: "select",
     options: [
       { label: "Level 1", value: "level 1" },
       { label: "Level 2", value: "level 2" },
@@ -40,6 +40,7 @@ const programFields: ModalField[] = [
       { label: "ICF", value: "icf" },
       { label: "Hypnotherapy", value: "hypnotherapy" },
       { label: "Trainer", value: "trainer" },
+      { label: "Business In The Box", value: "business_in_a_box" },
     ]
   },
   { name: "price", label: "Price", type: "input", inputType: "text", placeholder: "2000" },
@@ -128,6 +129,7 @@ export default function ProgramsPage() {
         { label: "ICF", value: "icf" },
         { label: "Hypnotherapy", value: "hypnotherapy" },
         { label: "Trainer", value: "trainer" },
+        { label: "Business In The Box", value: "business_in_a_box" },
       ]
     },
   ];
@@ -224,7 +226,11 @@ export default function ProgramsPage() {
                   )}
                 </div>
                 <h3 className="font-semibold text-gray-800 text-base mb-1">{program.name}</h3>
-                <p className="text-xs text-gray-400 capitalize">{program.level}</p>
+                {program.level && (
+                  <p className="text-xs text-gray-400 capitalize">
+                    {program.level}
+                  </p>
+                )}
                 {program.short_description && (
                   <p className="text-xs text-gray-500 mt-2 line-clamp-2">{program.short_description}</p>
                 )}
@@ -254,7 +260,7 @@ export default function ProgramsPage() {
               {/* Actions */}
               <div className="px-5 py-3 flex items-center gap-2">
                 {/* ✅ Manage → courses page pe navigate */}
-                {isAdmin && (
+                {isAdmin && program.category !== "business_in_a_box" && (
                   <button
                     onClick={() => router.push(`/dashboard/programs/${program._id}`)}
                     className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition font-medium"
@@ -309,7 +315,11 @@ export default function ProgramsPage() {
         onClose={() => setIsAddOpen(false)}
         title="Add New Program"
         fields={programFields}
-        onSubmit={(data) => addProgram(data)}
+        onSubmit={(data) => {
+          const payload = { ...data };
+          if (!payload.level) delete payload.level;
+          addProgram(payload);
+        }}
         isLoading={isAdding}
         mode="add"
       />
