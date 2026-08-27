@@ -509,27 +509,31 @@ function BatchDetailContent() {
               </span>
             </div>
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-400">Start Date</span>
-                <span className="text-xs text-gray-600 flex items-center gap-1">
-                  <Clock size={11} /> {formatDate(batch.start_date)}
-                </span>
-              </div>
-              {batch.end_date && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400">End Date</span>
-                  <span className="text-xs text-gray-600 flex items-center gap-1">
-                    <Clock size={11} /> {formatDate(batch.end_date)}
-                  </span>
-                </div>
-              )}
-              {batch.start_date && batch.end_date && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400">Duration</span>
-                  <span className="text-xs text-gray-600">
-                    {Math.ceil((new Date(batch.end_date).getTime() - new Date(batch.start_date).getTime()) / (1000 * 60 * 60 * 24))} days
-                  </span>
-                </div>
+              {batch.date_required !== false && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Start Date</span>
+                    <span className="text-xs text-gray-600 flex items-center gap-1">
+                      <Clock size={11} /> {formatDate(batch.start_date)}
+                    </span>
+                  </div>
+                  {batch.end_date && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">End Date</span>
+                      <span className="text-xs text-gray-600 flex items-center gap-1">
+                        <Clock size={11} /> {formatDate(batch.end_date)}
+                      </span>
+                    </div>
+                  )}
+                  {batch.start_date && batch.end_date && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">Duration</span>
+                      <span className="text-xs text-gray-600">
+                        {Math.ceil((new Date(batch.end_date).getTime() - new Date(batch.start_date).getTime()) / (1000 * 60 * 60 * 24))} days
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

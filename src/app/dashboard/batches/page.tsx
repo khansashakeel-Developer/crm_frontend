@@ -37,6 +37,7 @@ interface Batch {
   _id: string;
   name: string;
   program_id: Program | string;
+  date_required?: boolean
   start_date: string;
   end_date?: string;
   max_students: number;
@@ -60,6 +61,11 @@ const batchFields = (programs: Program[]): ModalField[] => [
     type: "input",
     inputType: "text",
     placeholder: "e.g. Batch 2026-A",
+  },
+  {
+    name: "date_required",
+    label: "Date Required",
+    type: "checkbox",
   },
   {
     name: "start_date",
@@ -352,18 +358,20 @@ export default function BatchesPage() {
                   </h3>
 
                   {/* Dates */}
-                  <div className="flex items-center gap-3 text-xs text-gray-400 mt-2">
-                    <span className="flex items-center gap-1">
-                      <Clock size={11} />
-                      {formatDate(batch.start_date)}
-                    </span>
-                    {batch.end_date && (
-                      <>
-                        <ChevronRight size={10} />
-                        <span>{formatDate(batch.end_date)}</span>
-                      </>
-                    )}
-                  </div>
+                  {batch.date_required !== false && (
+                    <div className="flex items-center gap-3 text-xs text-gray-400 mt-2">
+                      <span className="flex items-center gap-1">
+                        <Clock size={11} />
+                        {formatDate(batch.start_date)}
+                      </span>
+                      {batch.end_date && (
+                        <>
+                          <ChevronRight size={10} />
+                          <span>{formatDate(batch.end_date)}</span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Enrollment Progress */}
@@ -453,6 +461,7 @@ export default function BatchesPage() {
                 ? editingBatch.program_id._id
                 : editingBatch.program_id ?? "",
             name: editingBatch.name,
+            date_required: editingBatch.date_required ?? true,
             start_date: editingBatch.start_date?.split("T")[0] ?? "",
             end_date: editingBatch.end_date?.split("T")[0] ?? "",
             max_students: editingBatch.max_students?.toString(),
