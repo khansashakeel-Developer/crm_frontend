@@ -111,19 +111,19 @@ function ProgramPicker({
   selected,
   programBatches,
   activeBatches,
-  programAudioAccess,       // ← NAYA
+  programAudioAccess,
   onToggle,
   onPickBatch,
-  onToggleAudioAccess,      // ← NAYA
+  onToggleAudioAccess,
 }: {
   programs: any[];
   selected: string[];
   programBatches: Record<string, string>;
   activeBatches: any[];
-  programAudioAccess: Record<string, boolean>;   // ← NAYA
+  programAudioAccess: Record<string, boolean>;
   onToggle: (id: string) => void;
   onPickBatch: (program: { id: string; name: string }) => void;
-  onToggleAudioAccess: (id: string) => void;     // ← NAYA
+  onToggleAudioAccess: (id: string) => void;
 }) {
   return (
     <div className="mb-4">
@@ -131,16 +131,19 @@ function ProgramPicker({
       <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y">
         {programs.map((p: any) => {
           const isChecked = selected.includes(p._id);
+          const isBizBox = p.category === "business_in_a_box";
           const batchId = programBatches[p._id];
           const batch = activeBatches.find((b: any) => b._id === batchId);
-          const audioAccess = programAudioAccess[p._id] ?? true; // ← default true
+          const audioAccess = programAudioAccess[p._id] ?? true;
+
           return (
             <div key={p._id} className="flex items-center justify-between px-3 py-2">
               <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer flex-1">
                 <input type="checkbox" checked={isChecked} onChange={() => onToggle(p._id)} />
                 {p.name}
               </label>
-              {isChecked && (
+
+              {isChecked && !isBizBox && (
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
@@ -160,6 +163,10 @@ function ProgramPicker({
                     Audio
                   </label>
                 </div>
+              )}
+
+              {isChecked && isBizBox && (
+                <span className="text-[10px] text-gray-400 shrink-0">No batch needed</span>
               )}
             </div>
           );
@@ -232,6 +239,10 @@ function EnrollmentsContent() {
   // ── Dropdown data ────────────────────────────────────────────────────────
   // getNamesPrograms returns Program[] directly (already .then(r => r.data.data))
   const fallbackPrograms = [
+    {
+      _id: "6a8bf7b8a5ce6eddb90fb12e",
+      name: "Business In The Box"
+    },
     { _id: "69e8c025afaf0d3fb90233d4", name: "NLP Master Trainer Program" },
     {
       _id: "69e8bfb7afaf0d3fb90233a8",
@@ -252,7 +263,7 @@ function EnrollmentsContent() {
     {
       _id: "69d88bcd3b3f401bb2e711bc",
       name: "NLP Practitioner Program",
-    },
+    }
   ];
 
   const { data: programs = fallbackPrograms } = useQuery({
@@ -265,7 +276,10 @@ function EnrollmentsContent() {
         return fallbackPrograms;
       }
     },
-  });;
+  });
+
+  // ← YE LINE ADD KARO
+  const programCategoryMap = new Map(programs.map((p: any) => [p._id, p.category]));
 
   // getAllUsersForRole returns { data: User[] }
   const { data: usersRes } = useQuery({
@@ -558,7 +572,9 @@ function EnrollmentsContent() {
       return;
     }
 
-    const missing = programs.find((pid) => !batches[pid]);
+    const isBizBox = (pid: string) => programCategoryMap.get(pid) === "business_in_a_box";
+
+    const missing = programs.find((pid) => !isBizBox(pid) && !batches[pid]);
     if (missing) {
       toast.error("Please select a batch for every selected program!");
       return;
@@ -573,8 +589,8 @@ function EnrollmentsContent() {
       addEnrollment({
         user: formData.user,
         program: pid,
-        batch: batches[pid],
-        audioAccess: audioAccessMap[pid] ?? true,   // ← NAYA
+        batch: batches[pid] || undefined,
+        audioAccess: audioAccessMap[pid] ?? true,
       });
     } else {
       const alreadyEnrolled = programs.some((pid) =>
@@ -586,8 +602,8 @@ function EnrollmentsContent() {
       }
       const programBatchPairs = programs.map((pid) => ({
         program: pid,
-        batch: batches[pid],
-        audioAccess: audioAccessMap[pid] ?? true,   // ← NAYA
+        batch: batches[pid] || undefined,
+        audioAccess: audioAccessMap[pid] ?? true,
       }));
       addBundleEnrollment({ user: formData.user, programBatches: programBatchPairs });
     }
