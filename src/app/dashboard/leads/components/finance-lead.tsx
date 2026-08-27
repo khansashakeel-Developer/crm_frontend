@@ -37,7 +37,12 @@ export default function FinanceLeads() {
     const { data: leadsData, isLoading, isError } = useQuery({
         queryKey: ["finance-leads", filters, filtersPage],
         queryFn: () =>
-            getAllLeads({ ...filters, ...filtersPage, hasPaymentPlan: "true" }).then((r) => r.data), // 👈 filter yahan
+            getAllLeads({
+                ...filters,
+                ...filtersPage,
+                hasPaymentPlan: "true",
+                hasInvoiceNumber: filters.hasInvoiceNumber ? "true" : "",
+            }).then((r) => r.data),
     });
 
     const { data: activitiesData, isLoading: isLoadingActivities } = useQuery({

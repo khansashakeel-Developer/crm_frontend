@@ -156,6 +156,11 @@ export const leadFilterFields: FilterField[] = [
       { label: "Contact", value: "contact" },
     ],
   },
+  {
+    name: "hasInvoiceNumber",
+    label: "Invoice Generated",
+    type: "checkbox",
+  }
 ];
 
 // ── Default Filter State ─────────────────────────────────────
@@ -164,6 +169,7 @@ export const defaultLeadFilters = {
   quality: "",
   source: "",
   search: "",
+  hasInvoiceNumber: false, 
 };
 // import { FilterField } from "@/app/component/dashboard/page-header";
 
