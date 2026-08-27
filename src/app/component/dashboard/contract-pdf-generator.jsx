@@ -125,9 +125,29 @@ async function generateContractPDF(data) {
     logoImg = null;
   }
 
+  // Add near the top of generateContractPDF, after color/font setup:
+
+  const sanitize = (str) => {
+    if (str === null || str === undefined) return str;
+    return String(str)
+      // invisible bidi/formatting marks — the actual culprit (U+202A etc.)
+      .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g, "")
+      // common smart punctuation → WinAnsi-safe equivalents
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2013\u2014]/g, "-")
+      .replace(/\u2026/g, "...")
+      // anything else outside Latin-1 (e.g. Urdu/Arabic script, emoji) — strip
+      .replace(/[^\x00-\xFF]/g, "");
+  };
+
   // addPage ab sync rahega — logo upar embed ho chuka
   const addPage = () => {
     const pg = doc.addPage([W, H]);
+
+    // Sanitize every drawText call on this page automatically
+    const _drawText = pg.drawText.bind(pg);
+    pg.drawText = (text, opts) => _drawText(sanitize(text), opts);
 
     // Logo
     if (logoImg) {
