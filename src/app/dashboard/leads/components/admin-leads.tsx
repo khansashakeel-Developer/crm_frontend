@@ -35,6 +35,7 @@ import { useAppSelector } from "@/store/hooks";
 import ExportButton from "@/app/component/ui/export-button";
 import LeadImportButton from "./lead-import-button";
 import { markNotNowLead } from "@/utils/api";
+import DateRangeFilter from "@/app/component/dashboard/date-range-filter";
 
 // ── Main Component ────────────────────────────────────────────
 export default function AdminLeads() {
@@ -294,18 +295,24 @@ export default function AdminLeads() {
       <PageHeader
         title="Leads" subtitle="Manage all leads" titleIcon={<Users size={24} />}
         totalCount={leadsData?.meta?.total ?? 0} onAdd={() => setIsAddOpen(true)}
-        // pageKey="leads"
         filters={filters} setFilters={setFilters} filterFields={leadFilterFields}
-      // exportBtn={
-
-      // }
+        exportBtn={
+          (filters as any).dateFilter === "custom" ? (
+            <DateRangeFilter
+              from={(filters as any).dateFrom}
+              to={(filters as any).dateTo}
+              onChange={(from, to) =>
+                setFilters((f: any) => ({ ...f, dateFrom: from, dateTo: to }))
+              }
+            />
+          ) : undefined
+        }
       />
 
       {/* ── View Toggle ── */}
       <div className="flex items-center justify-between w-full gap-1 bg-gray-100 rounded-xl w-fit mb-4">
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setActiveView("opportunities")}
+          <button onClick={() => setActiveView("opportunities")}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === "opportunities" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
           >
             <LayoutGrid size={14} /> Opportunities

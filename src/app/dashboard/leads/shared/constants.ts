@@ -157,6 +157,20 @@ export const leadFilterFields: FilterField[] = [
     ],
   },
   {
+    type: "select",
+    name: "dateFilter",
+    placeholder: "All Time",
+    options: [
+      { label: "All Time", value: "" },
+      { label: "Today", value: "today" },
+      { label: "This Week", value: "this_week" },
+      { label: "This Month", value: "this_month" },
+      { label: "Last 3 Months", value: "last_3_months" },
+      { label: "Last 6 Months", value: "last_6_months" },
+      { label: "Custom Date", value: "custom" },
+    ],
+  },
+  {
     name: "hasInvoiceNumber",
     label: "Invoice Generated",
     type: "checkbox",
@@ -164,12 +178,16 @@ export const leadFilterFields: FilterField[] = [
 ];
 
 // ── Default Filter State ─────────────────────────────────────
+// ── Default Filter State ─────────────────────────────────────
 export const defaultLeadFilters = {
   status: "",
   quality: "",
   source: "",
   search: "",
-  hasInvoiceNumber: false, 
+  hasInvoiceNumber: false,
+  dateFilter: "",
+  dateFrom: "",
+  dateTo: "",
 };
 // import { FilterField } from "@/app/component/dashboard/page-header";
 
