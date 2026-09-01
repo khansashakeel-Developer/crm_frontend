@@ -11,6 +11,7 @@ const LINE: [number, number, number] = [221, 226, 236];
 const PANEL: [number, number, number] = [244, 246, 251];
 const GREEN: [number, number, number] = [22, 163, 74];
 const GREEN_BG: [number, number, number] = [220, 252, 231];
+const BLUE: [number, number, number] = [37, 99, 235];
 
 const PAGE_W = 210;
 const MARGIN = 14;
@@ -202,7 +203,7 @@ export default function DownloadReceipt(invoice: any, user: any, installments: a
         didParseCell: (data) => {
             if (data.row.index === paidRowIdx && data.column.index === 1) data.cell.styles.textColor = GREEN;
             if (data.row.index === remainingRowIdx && data.column.index === 1) data.cell.styles.textColor = [220, 38, 38];
-            if (data.row.index === discountRowIdx && data.column.index === 1) data.cell.styles.textColor = [220, 38, 38];
+            if (data.row.index === discountRowIdx && data.column.index === 1) data.cell.styles.textColor = BLUE;
             if (data.row.index === netRowIdx) {
                 data.cell.styles.fillColor = PANEL;
                 data.cell.styles.fontStyle = "bold";

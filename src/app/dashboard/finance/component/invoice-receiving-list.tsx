@@ -225,7 +225,7 @@ const handleDownloadReceipt = () => {
       <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
         <div className="flex items-center justify-between p-5 border-b">
           <div>
-            <h2 className="font-bold text-gray-800">Send Receipt</h2>
+            <h2 className="font-bold text-gray-800">Receipt</h2>
             <p className="text-xs text-gray-400 mt-0.5">{invoice.invoiceNumber} — {invoice.user?.name}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl font-bold">✕</button>
@@ -295,10 +295,10 @@ const handleDownloadReceipt = () => {
               disabled={
                 mode === "single" && !selectedInstallmentId
               }
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download size={15} />
-              Download Receipt
+              Download
             </button>
             <button
               type="button"
@@ -307,10 +307,10 @@ const handleDownloadReceipt = () => {
                 isSending ||
                 (mode === "single" && !selectedInstallmentId)
               }
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium disabled:opacity-50"
             >
               <Send size={15} />
-              {isSending ? "Sending..." : "Send Receipt"}
+              {isSending ? "Sending..." : "Send"}
             </button>
           </div>
         </div>

@@ -15,6 +15,7 @@ const RED: [number, number, number] = [220, 38, 38];
 const RED_BG: [number, number, number] = [254, 226, 226];
 const SLATE: [number, number, number] = [100, 116, 139];
 const SLATE_BG: [number, number, number] = [241, 245, 249];
+const BLUE: [number, number, number] = [37, 99, 235];
 
 const PAGE_W = 210;
 const MARGIN = 14;
@@ -245,7 +246,7 @@ export default function DownloadInvoice(invoice: any, user: any) {
     didParseCell: (data) => {
       if (data.row.index === paidRowIdx && data.column.index === 1) data.cell.styles.textColor = GREEN;
       if (data.row.index === remainingRowIdx && data.column.index === 1) data.cell.styles.textColor = RED;
-      if (data.row.index === discountRowIdx && data.column.index === 1) data.cell.styles.textColor = RED;
+      if (data.row.index === discountRowIdx && data.column.index === 1) data.cell.styles.textColor = BLUE;
       if (data.row.index === netRowIdx) {
         data.cell.styles.fillColor = PANEL;
         data.cell.styles.fontStyle = "bold";
