@@ -239,7 +239,7 @@ function TableView({ data, columns, actions, currentPage, pageSize, onRowClick,
           ))}
           {data?.length === 0 && (
             <tr>
-              <td colSpan={columns.length + 2} className="text-center py-16 text-gray-400">
+              <td colSpan={columns.length + 2} className="text-center py-16 text-gray-800 border-4">
                 No data found
               </td>
             </tr>

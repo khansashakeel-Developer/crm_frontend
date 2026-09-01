@@ -212,24 +212,45 @@ export default function DownloadInvoice(invoice: any, user: any) {
   // ── TOTALS ────────────────────────────────────────────────
   const totalsW = 80;
   const totalsX = PAGE_W - MARGIN - totalsW;
+  const grossAmount = invoice.totalAmount || 0;
+  const discountAmount = invoice.discountAmount || 0;
+  const netAmount = Math.max(0, grossAmount - discountAmount);
+
+  const totalsBody: any[] = [
+    ["Qty (Installments)", String(totalInstallments)],
+    ["Subtotal (Gross)", fmtAmt(grossAmount)],
+  ];
+  if (discountAmount > 0) {
+    totalsBody.push(["Discount", `- ${fmtAmt(discountAmount)}`]);
+    totalsBody.push(["Net Total", fmtAmt(netAmount)]);
+  }
+  totalsBody.push(["Amount Paid", fmtAmt(invoice.paidAmount)]);
+  totalsBody.push(["Outstanding Balance", fmtAmt(invoice.remainingAmount)]);
+  totalsBody.push(["Total Invoice Amount", fmtAmt(netAmount)]);
+
+  const paidRowIdx = totalsBody.findIndex((r) => r[0] === "Amount Paid");
+  const remainingRowIdx = totalsBody.findIndex((r) => r[0] === "Outstanding Balance");
+  const discountRowIdx = totalsBody.findIndex((r) => r[0] === "Discount");
+  const netRowIdx = totalsBody.findIndex((r) => r[0] === "Net Total");
+  const grandRowIdx = totalsBody.length - 1;
+
   autoTable(doc, {
     startY: y,
     margin: { left: totalsX },
     tableWidth: totalsW,
     theme: "grid",
     styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: LINE, lineWidth: 0.1 },
-    body: [
-      ["Qty (Installments)", String(totalInstallments)],
-      ["Subtotal", fmtAmt(invoice.totalAmount)],
-      ["Amount Paid", fmtAmt(invoice.paidAmount)],
-      ["Outstanding Balance", fmtAmt(invoice.remainingAmount)],
-      ["Total Invoice Amount", fmtAmt(invoice.totalAmount)],
-    ],
+    body: totalsBody,
     columnStyles: { 0: { cellWidth: 46, textColor: TEXT_GRAY }, 1: { cellWidth: 34, halign: "right", fontStyle: "bold", textColor: TEXT_DARK } },
     didParseCell: (data) => {
-      if (data.row.index === 2 && data.column.index === 1) data.cell.styles.textColor = GREEN;
-      if (data.row.index === 3 && data.column.index === 1) data.cell.styles.textColor = RED;
-      if (data.row.index === 4) {
+      if (data.row.index === paidRowIdx && data.column.index === 1) data.cell.styles.textColor = GREEN;
+      if (data.row.index === remainingRowIdx && data.column.index === 1) data.cell.styles.textColor = RED;
+      if (data.row.index === discountRowIdx && data.column.index === 1) data.cell.styles.textColor = RED;
+      if (data.row.index === netRowIdx) {
+        data.cell.styles.fillColor = PANEL;
+        data.cell.styles.fontStyle = "bold";
+      }
+      if (data.row.index === grandRowIdx) {
         data.cell.styles.fillColor = NAVY;
         data.cell.styles.textColor = 255;
         data.cell.styles.fontStyle = "bold";

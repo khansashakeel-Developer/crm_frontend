@@ -135,7 +135,7 @@ export const previewBulkLeads = (formData: FormData) =>
   API.post("/api/v1/leads/bulk-import/preview", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
- 
+
 export const confirmBulkLeads = (
   leads: {
     firstName: string;

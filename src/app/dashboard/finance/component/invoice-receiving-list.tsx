@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getAllInvoices, updateInvoice, sendInvoiceEmail,
-  sendReceivingInvoiceEmail, sendReceivingReportEmail,
+  sendReceivingInvoiceEmail, sendReceivingReportEmail
 } from "@/utils/api";
 import PageHeader from "@/app/component/dashboard/page-header";
 import DateRangeFilter from "@/app/component/dashboard/date-range-filter";
@@ -13,6 +13,7 @@ import { Send, Pencil, Eye, FileText, FileSpreadsheet, Download } from "lucide-r
 import toast from "react-hot-toast";
 import EmailAdminDropdown from "@/app/component/ui/email-admin-dropdown";
 import DownloadInvoice from "@/app/dashboard/payments/component/download-invoice";
+import DownloadReceipt  from "@/app/dashboard/payments/component/download-receipt";
 
 // ── Helpers for bundle / installment-notes display ────────────────
 const getProgramNames = (inv: any): string[] => {
@@ -195,6 +196,30 @@ function SendReceiptModal({ invoice, onClose, onSend, isSending }: {
     onSend({ sendAll: mode === "all", installmentId: mode === "single" ? selectedInstallmentId : undefined });
   };
 
+const handleDownloadReceipt = () => {
+  if (mode === "single" && !selectedInstallmentId) {
+    toast.error("Please select a paid installment");
+    return;
+  }
+
+  if (paidInstallments.length === 0) {
+    toast.error("No paid installment available");
+    return;
+  }
+
+  const installmentsToInclude =
+    mode === "single"
+      ? paidInstallments.filter((i: any) => i._id === selectedInstallmentId)
+      : paidInstallments;
+
+  try {
+    DownloadReceipt(invoice, invoice.user, installmentsToInclude);
+    toast.success("Receipt downloaded successfully ✅");
+  } catch (err: any) {
+    toast.error(err?.message || "Receipt download failed ❌");
+  }
+};
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
@@ -229,10 +254,10 @@ function SendReceiptModal({ invoice, onClose, onSend, isSending }: {
               }
               {selectedInst && (
                 <div className="mt-3 bg-gray-50 rounded-xl p-3 space-y-1">
-                  <div className="flex justify-between text-sm"><span className="text-gray-400">Amount</span><span className="font-semibold">{fmt(selectedInst.amount)}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-gray-400">Due Date</span><span>{fmtDate(selectedInst.dueDate)}</span></div>
-                  {selectedInst.method && <div className="flex justify-between text-sm"><span className="text-gray-400">Method</span><span className="capitalize">{selectedInst.method}</span></div>}
-                  {selectedInst.referenceNumber && <div className="flex justify-between text-sm"><span className="text-gray-400">Reference</span><span className="font-mono">{selectedInst.referenceNumber}</span></div>}
+                  <div className="flex justify-between text-sm"><span className="text-gray-400">Amount</span><span className="font-semibold text-gray-400">{fmt(selectedInst.amount)}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-400">Due Date</span><span className="text-gray-400">{fmtDate(selectedInst.dueDate)}</span></div>
+                  {selectedInst.method && <div className="flex justify-between text-sm"><span className="text-gray-400">Method</span><span className="capitalize text-gray-400">{selectedInst.method}</span></div>}
+                  {selectedInst.referenceNumber && <div className="flex justify-between text-sm"><span className="text-gray-400">Reference</span><span className="font-mono text-gray-400">{selectedInst.referenceNumber}</span></div>}
                 </div>
               )}
             </div>
@@ -264,10 +289,27 @@ function SendReceiptModal({ invoice, onClose, onSend, isSending }: {
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
-            <button onClick={handleSubmit}
-              disabled={isSending || (mode === "single" && !selectedInstallmentId) || paidInstallments.length === 0}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl font-medium disabled:opacity-50">
-              <Send size={14} />
+            <button
+              type="button"
+              onClick={handleDownloadReceipt}
+              disabled={
+                mode === "single" && !selectedInstallmentId
+              }
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download size={15} />
+              Download Receipt
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={
+                isSending ||
+                (mode === "single" && !selectedInstallmentId)
+              }
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium disabled:opacity-50"
+            >
+              <Send size={15} />
               {isSending ? "Sending..." : "Send Receipt"}
             </button>
           </div>

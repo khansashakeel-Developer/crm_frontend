@@ -320,9 +320,17 @@ function EnrollmentDetailContent() {
                     {invoice.status}
                   </span>
                 </div>
-                <div className="mt-3 flex items-center justify-between text-sm">
-                  <span className="text-gray-400 text-xs">Total</span>
+                <div className="mt-1 flex items-center justify-between text-sm">
+                  <span className="text-gray-400 text-xs">Total Gross</span>
                   <span className="font-medium text-gray-800">{fmtMoney(invoice.totalAmount)}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-sm">
+                  <span className="text-gray-400 text-xs ">Discount</span>
+                  <span className="font-medium  text-sky-400">- {fmtMoney(invoice.discountAmount)}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-sm">
+                  <span className="text-gray-400 text-xs">Total Net</span>
+                  <span className="font-medium text-gray-800">{fmtMoney(invoice.totalAmount - invoice.discountAmount)}</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between text-sm">
                   <span className="text-gray-400 text-xs">Paid</span>
