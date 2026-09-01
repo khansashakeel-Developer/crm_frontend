@@ -9,9 +9,10 @@ import PageHeader from "@/app/component/dashboard/page-header";
 import DateRangeFilter from "@/app/component/dashboard/date-range-filter";
 import ExportButton from "@/app/component/ui/export-button";
 import DynamicTable from "@/app/component/dashboard/dynamic-table";
-import { Send, Pencil, Eye, FileText, FileSpreadsheet } from "lucide-react";
+import { Send, Pencil, Eye, FileText, FileSpreadsheet, Download } from "lucide-react";
 import toast from "react-hot-toast";
 import EmailAdminDropdown from "@/app/component/ui/email-admin-dropdown";
+import DownloadInvoice from "@/app/dashboard/payments/component/download-invoice";
 
 // ── Helpers for bundle / installment-notes display ────────────────
 const getProgramNames = (inv: any): string[] => {
@@ -46,7 +47,16 @@ export function InvoiceViewModal({ invoice, onClose }: { invoice: any; onClose: 
             <h2 className="font-bold text-gray-800">{invoice.invoiceNumber}</h2>
             <p className="text-xs text-gray-400 mt-0.5">{invoice.user?.name} — {invoice.user?.email}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl font-bold">✕</button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => DownloadInvoice(invoice, invoice.user)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              <Download size={13} />
+              Download Invoice
+            </button>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl font-bold">✕</button>
+          </div>
         </div>
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-3 gap-3">
@@ -384,12 +394,12 @@ export default function InvoiceReceivingList() {
         <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor(inv.status)}`}>{inv.status}</span>
       ),
     },
-  //   {
-  //     key: "description", label: "Description",
-  //     render: (inv: any) => inv.description
-  //       ? <span className="text-xs text-gray-500 font-mono truncate max-w-[180px] block">{inv.description}</span>
-  //       : <span className="text-xs text-gray-300 italic">No Description</span>,
-  //   },
+    //   {
+    //     key: "description", label: "Description",
+    //     render: (inv: any) => inv.description
+    //       ? <span className="text-xs text-gray-500 font-mono truncate max-w-[180px] block">{inv.description}</span>
+    //       : <span className="text-xs text-gray-300 italic">No Description</span>,
+    //   },
   ];
 
   const actions = [
