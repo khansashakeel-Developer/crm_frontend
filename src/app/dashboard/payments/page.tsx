@@ -19,6 +19,7 @@ import DocumentsSection from "../profile/component/documents-section";
 import ExportButton from "@/app/component/ui/export-button";
 import toast from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import DownloadReceipt from "./component/download-receipt";
 
 // ── Helpers ───────────────────────────────────────────────────
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -123,6 +124,20 @@ function InvoiceCard({ invoice }: { invoice: any }) {
     setSendingInstallment(installmentId);
     emailReceipt(installmentId);
   };
+
+  const handleDownloadReceipt = (installment: any) => {
+  try {
+    DownloadReceipt(
+      invoice,
+      userForInvoice,
+      [installment]
+    );
+
+    toast.success("Receipt downloaded successfully ✅");
+  } catch (err: any) {
+    toast.error(err?.message || "Receipt download failed ❌");
+  }
+};
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -286,18 +301,34 @@ function InvoiceCard({ invoice }: { invoice: any }) {
 
                       {/* ✅ Email receipt button — only for PAID installments */}
                       {isPaid && (
-                        <button
-                          onClick={() => handleSendReceipt(inst._id)}
-                          disabled={isSendingThis}
-                          className="flex items-center gap-1.5 px-3 py-1.5 mt-2 rounded-full border border-blue-200 text-xs font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors disabled:opacity-60"                        >
-                          {isSendingThis ? (
-                            <Loader2 size={10} className="animate-spin" />
-                          ) : (
-                            <Mail size={10} />
-                          )}
-                          Email me this receipt
-                        </button>
+                        <div className="flex items-center gap-2 flex-wrap mt-2">
+
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadReceipt(inst)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                          >
+                            <Download size={10} />
+                            Download Receipt
+                          </button>
+
+                          <button
+                            onClick={() => handleSendReceipt(inst._id)}
+                            disabled={isSendingThis}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-blue-200 text-xs font-medium text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-colors disabled:opacity-60"
+                          >
+                            {isSendingThis ? (
+                              <Loader2 size={10} className="animate-spin" />
+                            ) : (
+                              <Mail size={10} />
+                            )}
+                            Email me this receipt
+                          </button>
+
+                        </div>
                       )}
+
+
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold mb-1 text-gray-400 placeholder:text-gray-400">{fmt(inst.amount)}</p>
