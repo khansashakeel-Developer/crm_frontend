@@ -21,6 +21,10 @@ import {
   Search, X, Loader2, Volume2, VolumeX,
   Mic,
   MicOff,
+  Download,
+  ChevronDown,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import { useState, useRef, useEffect } from "react";
@@ -354,6 +358,9 @@ function BatchDetailContent() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [removingStudent, setRemovingStudent] = useState<any>(null);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["batch", id],
@@ -423,6 +430,43 @@ function BatchDetailContent() {
     },
     onError: () => toast.error("Failed to update audio access"),
   });
+  // ── Export batch payments ──
+    const handleExport = async (format: "xlsx" | "csv" | "pdf") => {
+    setShowExportMenu(false);
+    setIsExporting(true);
+    try {
+      const res = await API.get(`/api/v1/programs/batches/${id}/export`, {
+        params: { format },
+        responseType: "blob",
+      });
+      const blob = new Blob([res.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${(data?.data?.name || "batch").replace(/[^a-z0-9]+/gi, "-")}-payments.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Export downloaded ✅");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to export");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // ── Close export menu on outside click ──
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
 
   // ── Handle search modal select ──
   const handleSearchSelect = (enrollment: any) => {
@@ -478,17 +522,62 @@ function BatchDetailContent() {
             <ArrowLeft size={22} />
           </button>
         }
-        actions={
-          canManage ? (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="w-9 h-9 rounded-lg flex items-center justify-center hover:opacity-80 transition"
-              style={{ background: "#EEEDFE" }}
-              title="Add Student"
-            >
-              <Plus size={16} color="#534AB7" />
-            </button>
-          ) : undefined
+                actions={
+          <div className="flex items-center gap-2">
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                onClick={() => setShowExportMenu((v) => !v)}
+                disabled={isExporting}
+                className="flex items-center gap-1.5 px-3 h-9 rounded-lg text-xs font-medium bg-gray-50 text-gray-600 hover:bg-gray-100 transition disabled:opacity-50"
+                title="Export payments"
+              >
+                {isExporting ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Download size={14} />
+                )}
+                Export
+                <ChevronDown size={12} />
+              </button>
+
+              {showExportMenu && (
+                <div className="absolute right-0 mt-1.5 w-40 bg-white rounded-xl border border-gray-100 shadow-lg py-1.5 z-50">
+                  <button
+                    onClick={() => handleExport("xlsx")}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition"
+                  >
+                    <FileSpreadsheet size={13} className="text-emerald-500" />
+                    Export as Excel
+                  </button>
+                                    <button
+                    onClick={() => handleExport("csv")}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition"
+                  >
+                    <FileText size={13} className="text-indigo-500" />
+                    Export as CSV
+                  </button>
+                  <button
+                    onClick={() => handleExport("pdf")}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition"
+                  >
+                    <FileText size={13} className="text-rose-500" />
+                    Export as PDF
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {canManage && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="w-9 h-9 rounded-lg flex items-center justify-center hover:opacity-80 transition"
+                style={{ background: "#EEEDFE" }}
+                title="Add Student"
+              >
+                <Plus size={16} color="#534AB7" />
+              </button>
+            )}
+          </div>
         }
       />
 
@@ -599,11 +688,33 @@ function BatchDetailContent() {
                 </span>
               </div>
 
-              <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Remaining</span>
                 <span className="text-sm font-semibold text-amber-600">
                   PKR {Number(batch.revenue?.remainingAmount ?? 0).toLocaleString()}
                 </span>
+              </div>
+
+              {/* Payment Progress Bar */}
+              <div className="pt-3 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs text-gray-400">Payment Progress</span>
+                  <span className="text-xs font-medium text-gray-700">
+                    {batch.revenue?.paidPercentage ?? 0}%
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      (batch.revenue?.paidPercentage ?? 0) >= 80
+                        ? "bg-emerald-400"
+                        : (batch.revenue?.paidPercentage ?? 0) >= 40
+                        ? "bg-yellow-400"
+                        : "bg-red-400"
+                    }`}
+                    style={{ width: `${Math.min(batch.revenue?.paidPercentage ?? 0, 100)}%` }}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -649,7 +760,7 @@ function BatchDetailContent() {
                       <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-semibold text-indigo-600 shrink-0">
                         {student.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) ?? "?"}
                       </div>
-                      <div className="min-w-0">
+                                            <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-700 truncate">{student.name || "—"}</p>
                         <div className="flex items-center gap-3 text-[11px] text-gray-400 mt-0.5">
                           {student.email && (
@@ -663,6 +774,29 @@ function BatchDetailContent() {
                             </span>
                           )}
                         </div>
+
+                                                {/* Per-student payment progress */}
+                        {(() => {
+                          const total = student.invoice?.totalAmount ?? 0;
+                          const paid = student.invoice?.paidAmount ?? 0;
+                          const pct = total > 0 ? Math.min(Math.round((paid / total) * 100), 100) : 0;
+
+                          return (
+                            <div className="flex items-center gap-2 mt-1.5 max-w-[160px]">
+                              <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    pct >= 80 ? "bg-emerald-400" : pct >= 40 ? "bg-yellow-400" : pct > 0 ? "bg-red-400" : "bg-gray-200"
+                                  }`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-gray-400 font-medium shrink-0">
+                                {pct}%
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
 
