@@ -101,7 +101,9 @@ export default function PaymentPlanModal({ lead, onClose, onSubmit, isSubmitting
   const [form, setForm] = useState<PaymentPlanData>({
     invoiceNumber: existingPlan?.invoiceNumber ?? "",
     issueDate: toDateInput(existingPlan?.issueDate) || todayStr(),
-    totalAmount: existingPlan?.totalAmount ?? lead?.opportunity_value ?? 0,
+    totalAmount: existingPlan?.totalAmount
+      ? existingPlan.totalAmount - (existingPlan.certificateFee || 0) - (existingPlan.manualFee || 0)
+      : baseAmount,   // ya lead?.opportunity_value ?? 0 (PaymentPlanModal mein)
     discount: existingPlan?.discountAmount ?? 0,
     advanceAmount: existingPlan?.advanceAmount ?? 0,
     advanceDueDate: toDateInput(existingPlan?.advanceDueDate) ?? "",
@@ -116,19 +118,31 @@ export default function PaymentPlanModal({ lead, onClose, onSubmit, isSubmitting
     notes: existingPlan?.notes ?? "",
   });
 
+  // const handleDiscountChange = (value: number) => {
+  //   const safeValue = Math.max(0, value);
+  //   setForm((p) => ({
+  //     ...p,
+  //     discount: safeValue,
+  //     totalAmount: Math.max(0, baseAmount - safeValue),
+  //   }));
+  // };
+
   const handleDiscountChange = (value: number) => {
     const safeValue = Math.max(0, value);
-    setForm((p) => ({
-      ...p,
-      discount: safeValue,
-      totalAmount: Math.max(0, baseAmount - safeValue),
-    }));
+    setForm((p) => ({ ...p, discount: safeValue }));
   };
 
   const isAdvanceFilled = form.advanceAmount > 0 && form.advanceDueDate !== "";
 
+  // Fees existingPlan se aate hain (locked, read-only display) — agar naya plan hai to 0
+  const certFee = existingPlan?.certificateFee || 0;
+  const manualFee = existingPlan?.manualFee || 0;
+
+  const grossWithFees = form.totalAmount + certFee + manualFee;
+  const netPayable = grossWithFees - form.discount;
+
   const remaining =
-    form.totalAmount -
+    netPayable -
     form.advanceAmount -
     form.installments.reduce((s, i) => s + Number(i.amount), 0);
 
@@ -178,15 +192,18 @@ export default function PaymentPlanModal({ lead, onClose, onSubmit, isSubmitting
 
   const handleDownloadInvoice = () => {
     const plan = form;
+    const grossTotal = plan.totalAmount + certFee + manualFee; // stored-style gross
+    const net = grossTotal - plan.discount;
 
     const mockInvoice = {
       invoiceNumber: plan.invoiceNumber,
       status: "PENDING",
       createdAt: plan.issueDate,
       dueDate: plan.advanceDueDate,
-      totalAmount: plan.totalAmount,
+      totalAmount: grossTotal,
+      discountAmount: plan.discount,
       paidAmount: 0,
-      remainingAmount: plan.totalAmount,
+      remainingAmount: net,
       installments: [
         ...(plan.advanceAmount > 0
           ? [{
@@ -203,6 +220,12 @@ export default function PaymentPlanModal({ lead, onClose, onSubmit, isSubmitting
           dueDate: inst.dueDate,
           status: inst.status === "paid" ? "PAID" : "PENDING",
         })),
+        ...(certFee > 0
+          ? [{ label: "Certificate Fee", amount: certFee, dueDate: plan.advanceDueDate, status: "PENDING" }]
+          : []),
+        ...(manualFee > 0
+          ? [{ label: "Manual Fee", amount: manualFee, dueDate: plan.advanceDueDate, status: "PENDING" }]
+          : []),
       ],
       enrollment: {
         _id: lead?._id,
@@ -430,7 +453,7 @@ export default function PaymentPlanModal({ lead, onClose, onSubmit, isSubmitting
                 ? `Over-allocated by Rs ${Math.abs(remaining).toLocaleString()}`
                 : remaining === 0
                   ? "Fully allocated"
-                  : `Remaining to allocate: Rs ${remaining.toLocaleString()}`}
+                  : `Remaining to allocate: Rs ${remaining.toLocaleString()}`} of Rs {netPayable.toLocaleString()} (after fees & discount)
             </div>
           )}
 

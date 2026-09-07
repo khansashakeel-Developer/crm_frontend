@@ -48,15 +48,19 @@ export default function MarkInterestedModal({ lead, onClose, onSubmit, isSubmitt
   const canSeeInvoiceMeta = ["admin", "super_admin", "finance_manager"].includes(user?.role);
   const baseAmount = lead?.opportunity_value ?? 0;
   const existingPlan = lead?.paymentPlan;
+  const certFeeLocked = Boolean(existingPlan?.certificateFee > 0);
+  const manualFeeLocked = Boolean(existingPlan?.manualFee > 0);
   const todayStr = () => new Date().toISOString().split("T")[0];
 
-  const [includeCertFee, setIncludeCertFee] = useState(false);
-  const [certificateFee, setCertificateFee] = useState(0);
-  const [includeManualFee, setIncludeManualFee] = useState(false);
-  const [manualFee, setManualFee] = useState(5000);
+  const [includeCertFee, setIncludeCertFee] = useState(Boolean(existingPlan?.certificateFee));
+  const [certificateFee, setCertificateFee] = useState(existingPlan?.certificateFee || 0);
+  const [includeManualFee, setIncludeManualFee] = useState(Boolean(existingPlan?.manualFee));
+  const [manualFee, setManualFee] = useState(existingPlan?.manualFee || 5000);
 
   useEffect(() => {
     if (!lead?.program_id) return;
+    if (existingPlan?.certificateFee || existingPlan?.manualFee) return;
+
     const programId = typeof lead.program_id === "object" ? lead.program_id._id : lead.program_id;
     adminGetProgramById(programId).then((res) => {
       setCertificateFee(res.data?.data?.certificateFee || 0);
@@ -67,7 +71,9 @@ export default function MarkInterestedModal({ lead, onClose, onSubmit, isSubmitt
   const [form, setForm] = useState<FormState>({
     invoiceNumber: existingPlan?.invoiceNumber ?? "",
     issueDate: toDateInput(existingPlan?.issueDate) || todayStr(),
-    totalAmount: existingPlan?.totalAmount ?? baseAmount,
+    totalAmount: existingPlan?.totalAmount
+      ? existingPlan.totalAmount - (existingPlan.certificateFee || 0) - (existingPlan.manualFee || 0)
+      : baseAmount,
     discount: existingPlan?.discountAmount ?? 0,
     advanceAmount: existingPlan?.advanceAmount ?? 0,
     advanceDueDate: toDateInput(existingPlan?.advanceDueDate) ?? "",
@@ -83,20 +89,28 @@ export default function MarkInterestedModal({ lead, onClose, onSubmit, isSubmitt
 
   const [errors, setErrors] = useState<FormErrors>({});
 
+  // const handleDiscountChange = (value: number) => {
+  //   const safeValue = Math.max(0, value);
+  //   setForm((p) => ({
+  //     ...p,
+  //     discount: safeValue,
+  //     totalAmount: Math.max(0, baseAmount - safeValue),
+  //   }));
+  // };
+
   const handleDiscountChange = (value: number) => {
     const safeValue = Math.max(0, value);
-    setForm((p) => ({
-      ...p,
-      discount: safeValue,
-      totalAmount: Math.max(0, baseAmount - safeValue),
-    }));
+    setForm((p) => ({ ...p, discount: safeValue }));
   };
 
   // ── Advance fill check ──────────────────────────────────────────
   const isAdvanceFilled = form.advanceAmount > 0 && form.advanceDueDate !== "";
 
+  const grossWithFees = form.totalAmount + (includeCertFee ? certificateFee : 0) + (includeManualFee ? manualFee : 0);
+  const netPayable = grossWithFees - form.discount;
+
   const remaining =
-    form.totalAmount -
+    netPayable -
     form.advanceAmount -
     form.installments.reduce((s, i) => s + Number(i.amount), 0);
 
@@ -241,14 +255,18 @@ export default function MarkInterestedModal({ lead, onClose, onSubmit, isSubmitt
 
           {/* Certificate Fee — checkbox + editable input */}
           <div className="border border-gray-100 rounded-xl p-3 bg-gray-50">
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className={`flex items-center gap-2 ${certFeeLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}>
               <input
                 type="checkbox"
                 checked={includeCertFee}
+                disabled={certFeeLocked}
                 onChange={(e) => setIncludeCertFee(e.target.checked)}
-                className="w-4 h-4 accent-indigo-500 rounded"
+                className="w-4 h-4 accent-indigo-500 rounded disabled:cursor-not-allowed"
               />
               <span className="text-xs font-semibold text-gray-700">Include Certificate Fee in this invoice</span>
+              {certFeeLocked && (
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-200 text-gray-500">Locked</span>
+              )}
             </label>
 
             {includeCertFee && (
@@ -257,24 +275,36 @@ export default function MarkInterestedModal({ lead, onClose, onSubmit, isSubmitt
                   label="Certificate Fee (Rs)"
                   type="number"
                   value={String(certificateFee || "")}
-                  onChange={(e: any) => setCertificateFee(Number(e.target.value))}
+                  disabled={certFeeLocked}
+                  readOnly={certFeeLocked}
+                  onChange={(e: any) => {
+                    if (certFeeLocked) return;
+                    setCertificateFee(Number(e.target.value));
+                  }}
                   placeholder="e.g. 5000"
-                  bg="bg-white"
+                  bg={certFeeLocked ? "bg-gray-100" : "bg-white"}
                 />
+                {certFeeLocked && (
+                  <p className="text-[10px] text-gray-400 mt-1">Locked once set — can't be changed until conversion</p>
+                )}
               </div>
             )}
           </div>
 
           {/* Manual Fee checkbox, same pattern */}
           <div className="border border-gray-100 rounded-xl p-3 bg-gray-50">
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className={`flex items-center gap-2 ${manualFeeLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}>
               <input
                 type="checkbox"
                 checked={includeManualFee}
+                disabled={manualFeeLocked}
                 onChange={(e) => setIncludeManualFee(e.target.checked)}
-                className="w-4 h-4 accent-teal-500 rounded"
+                className="w-4 h-4 accent-teal-500 rounded disabled:cursor-not-allowed"
               />
               <span className="text-xs font-semibold text-gray-700">Include Manual Fee</span>
+              {manualFeeLocked && (
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-200 text-gray-500">Locked</span>
+              )}
             </label>
 
             {includeManualFee && (
@@ -283,10 +313,18 @@ export default function MarkInterestedModal({ lead, onClose, onSubmit, isSubmitt
                   label="Manual Fee (Rs)"
                   type="number"
                   value={String(manualFee || "")}
-                  onChange={(e: any) => setManualFee(Number(e.target.value))}
+                  disabled={manualFeeLocked}
+                  readOnly={manualFeeLocked}
+                  onChange={(e: any) => {
+                    if (manualFeeLocked) return;
+                    setManualFee(Number(e.target.value));
+                  }}
                   placeholder="e.g. 5000"
-                  bg="bg-white"
+                  bg={manualFeeLocked ? "bg-gray-100" : "bg-white"}
                 />
+                {manualFeeLocked && (
+                  <p className="text-[10px] text-gray-400 mt-1">Locked once set — can't be changed until conversion</p>
+                )}
               </div>
             )}
           </div>
@@ -318,17 +356,19 @@ export default function MarkInterestedModal({ lead, onClose, onSubmit, isSubmitt
 
           {/* Remaining badge */}
           {isAdvanceFilled && (
-            <div className={`text-xs font-semibold px-3 py-2 rounded-lg ${remaining < 0
-              ? "bg-rose-50 text-rose-600"
-              : remaining === 0
-                ? "bg-teal-50 text-teal-600"
-                : "bg-yellow-50 text-yellow-600"
-              }`}>
+            <div
+              className={`text-xs font-semibold px-3 py-2 rounded-lg ${remaining < 0
+                ? "bg-rose-50 text-rose-600"
+                : remaining === 0
+                  ? "bg-teal-50 text-teal-600"
+                  : "bg-orange-50 text-orange-600"
+                }`}
+            >
               {remaining < 0
                 ? `Over-allocated by Rs ${Math.abs(remaining).toLocaleString()}`
                 : remaining === 0
-                  ? "✓ Fully allocated"
-                  : `Remaining to allocate: Rs ${remaining.toLocaleString()}`}
+                  ? "Fully allocated"
+                  : `Remaining to allocate: Rs ${remaining.toLocaleString()}`} of Rs {netPayable.toLocaleString()} (after fees & discount)
             </div>
           )}
 
