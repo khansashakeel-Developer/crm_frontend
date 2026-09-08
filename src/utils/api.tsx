@@ -187,6 +187,12 @@ export const adminCreateBatch = (data: any) => API.post("/api/v1/programs/batche
 export const adminUpdateBatch = (id: string, data: any) => API.put(`/api/v1/programs/batches/${id}`, data);
 export const adminDeleteBatch = (id: string) => API.delete(`/api/v1/programs/batches/${id}`);
 
+export const adminExportBatches = (id: string, format: string) =>
+  API.get(`/api/v1/programs/batches/${id}/export`, { params: { format }, responseType: "blob" });
+
+export const adminExportAllBatches = (params?: any) =>
+  API.get("/api/v1/programs/batches/export-all", { params, responseType: "blob" });
+
 export const adminAddStudentToBatch = (batchId: string, data: { studentId: string }) =>
   API.post(`/api/v1/programs/batches/${batchId}/students`, data);
 
