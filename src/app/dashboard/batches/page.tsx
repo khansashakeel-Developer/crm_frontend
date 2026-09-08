@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   adminGetBatches,
   adminCreateBatch,
   adminUpdateBatch,
   adminDeleteBatch,
+  adminExportAllBatches,
   getNamesPrograms,
 } from "@/utils/api";
 import PageHeader, { FilterField } from "@/app/component/dashboard/page-header";
@@ -22,6 +23,11 @@ import {
   Clock,
   ChevronRight,
   GraduationCap,
+  Download,
+  ChevronDown,
+  FileSpreadsheet,
+  FileText,
+  Loader2,
 } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "next/navigation";
@@ -153,11 +159,14 @@ export default function BatchesPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
   const [deletingBatch, setDeletingBatch] = useState<Batch | null>(null);
-  const [filters, setFilters] = useState({
+    const [filters, setFilters] = useState({
     search: "",
     status: "",
     program_id: "",
   });
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   // component ke andar
   const { user: authUser } = useAppSelector((state) => state.auth);
@@ -233,6 +242,39 @@ export default function BatchesPage() {
     },
     onError: () => toast.error("Delete failed!"),
   });
+    // ── Export all batches ──
+  const handleExportAll = async (format: "xlsx" | "csv" | "pdf") => {
+    setShowExportMenu(false);
+    setIsExporting(true);
+    try {
+      const res = await adminExportAllBatches({ ...filters, format });
+      const blob = new Blob([res.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `all-batches-payments.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Export downloaded ✅");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to export");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // ── Close export menu on outside click ──
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const batches: Batch[] = data?.data ?? [];
 
@@ -260,7 +302,7 @@ export default function BatchesPage() {
 
   return (
     <ProtectedRoute allowedRoles={["admin", "super_admin", "sales_manager", "finance_manager", "sales_rep"]}>
-      <PageHeader
+            <PageHeader
         title="Batches"
         subtitle="Manage all program batches and enrollments"
         titleIcon={<CalendarDays size={24} />}
@@ -269,6 +311,50 @@ export default function BatchesPage() {
         filters={filters}
         setFilters={setFilters}
         filterFields={filterFields}
+        exportBtn={
+          <div className="relative" ref={exportMenuRef}>
+            <button
+              onClick={() => setShowExportMenu((v) => !v)}
+              disabled={isExporting}
+              className="flex items-center gap-1.5 px-3 h-9 rounded-lg text-xs font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition disabled:opacity-50 shadow-sm"
+              title="Export all batches"
+            >
+              {isExporting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Download size={14} />
+              )}
+              Export All
+              <ChevronDown size={12} />
+            </button>
+
+            {showExportMenu && (
+              <div className="absolute right-0 mt-1.5 w-44 bg-white rounded-xl border border-gray-100 shadow-lg py-1.5 z-50">
+                <button
+                  onClick={() => handleExportAll("xlsx")}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition"
+                >
+                  <FileSpreadsheet size={13} className="text-emerald-500" />
+                  Export as Excel
+                </button>
+                <button
+                  onClick={() => handleExportAll("csv")}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition"
+                >
+                  <FileText size={13} className="text-indigo-500" />
+                  Export as CSV
+                </button>
+                <button
+                  onClick={() => handleExportAll("pdf")}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition"
+                >
+                  <FileText size={13} className="text-rose-500" />
+                  Export as PDF
+                </button>
+              </div>
+            )}
+          </div>
+        }
       />
 
       {/* ── Summary Stats ── */}
