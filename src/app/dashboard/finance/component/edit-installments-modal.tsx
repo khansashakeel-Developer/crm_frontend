@@ -229,7 +229,13 @@ export default function EditInstallmentsModal({ invoice, onClose }: Props) {
                         )}
                         {inst.feeType === "certificate" && (
                           <span className="text-[9px] font-bold uppercase tracking-wider bg-purple-200 text-purple-700 px-2 py-0.5 rounded-full">
-                            🎓 Certificate
+                            Certificate
+                          </span>
+                        )}
+
+                        {inst.feeType === "manual" && (
+                          <span className="text-[9px] font-bold uppercase tracking-wider bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full">
+                            Manual Fee
                           </span>
                         )}
                         <span
