@@ -38,7 +38,17 @@ const fmtDate = (d: string) =>
   d ? new Date(d).toLocaleDateString("en-PK", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
 // ── View Modal ───────────────────────────────────────────────────
-export function InvoiceViewModal({ invoice, onClose }: { invoice: any; onClose: () => void }) {
+export function InvoiceViewModal({
+  invoice,
+  onClose,
+  onRequestSendInvoice,
+  isSendingInvoice,
+}: {
+  invoice: any;
+  onClose: () => void;
+  onRequestSendInvoice?: (inv: any) => void;
+  isSendingInvoice?: boolean;
+}) {
   if (!invoice) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -56,6 +66,16 @@ export function InvoiceViewModal({ invoice, onClose }: { invoice: any; onClose: 
               <Download size={13} />
               Download Invoice
             </button>
+            {onRequestSendInvoice && (
+              <button
+                onClick={() => onRequestSendInvoice(invoice)}
+                disabled={isSendingInvoice}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors disabled:opacity-50"
+              >
+                <Send size={13} />
+                Send Invoice
+              </button>
+            )}
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl font-bold">✕</button>
           </div>
         </div>
@@ -172,6 +192,38 @@ function EditMemoModal({ invoice, onClose, onSave, isSaving }: {
             <button onClick={() => onSave(invoice._id, memo)} disabled={isSaving}
               className="px-4 py-2 text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl font-medium disabled:opacity-50">
               {isSaving ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Confirm Send Invoice Modal ────────────────────────────────────
+export function ConfirmSendInvoiceModal({ invoice, onClose, onConfirm, isSending }: {
+  invoice: any; onClose: () => void; onConfirm: () => void; isSending: boolean;
+}) {
+  if (!invoice) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl">
+        <div className="p-5 border-b">
+          <h2 className="font-bold text-gray-800">Send Invoice?</h2>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="text-sm text-gray-600">
+            This will email invoice <span className="font-semibold text-gray-800">{invoice.invoiceNumber}</span> to{" "}
+            <span className="font-semibold text-gray-800">{invoice.user?.email}</span>.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+            <button
+              onClick={onConfirm}
+              disabled={isSending}
+              className="px-4 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium disabled:opacity-50"
+            >
+              {isSending ? "Sending..." : "Send Invoice"}
             </button>
           </div>
         </div>
@@ -326,6 +378,7 @@ export default function InvoiceReceivingList() {
   const [editMemoInvoice, setEditMemoInvoice] = useState<any>(null);
   const [sendReceiptInvoice, setSendReceiptInvoice] = useState<any>(null);
   const [isSendingInvoice, setIsSendingInvoice] = useState(false);
+  const [confirmSendInvoice, setConfirmSendInvoice] = useState<any>(null);
   const [isSendingReceipt, setIsSendingReceipt] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -447,7 +500,6 @@ export default function InvoiceReceivingList() {
   const actions = [
     { icon: <Eye size={14} />, label: "View Invoice", onClick: (inv: any) => setViewInvoice(inv), className: "hover:bg-sky-50 hover:text-sky-600" },
     // { icon: <Pencil size={14} />, label: "Edit Memo", onClick: (inv: any) => setEditMemoInvoice(inv), className: "hover:bg-yellow-50 hover:text-yellow-600" },
-    { icon: <Send size={14} />, label: "Send Invoice", onClick: (inv: any) => handleSendInvoice(inv._id), className: "hover:bg-blue-50 hover:text-blue-600", disabled: () => isSendingInvoice },
     { icon: <FileText size={14} />, label: "Send Receipt", onClick: (inv: any) => setSendReceiptInvoice(inv), className: "hover:bg-green-50 hover:text-green-600" },
   ];
 
@@ -522,7 +574,23 @@ export default function InvoiceReceivingList() {
         onToggleSelect={toggleSelect}
       />
 
-      <InvoiceViewModal invoice={viewInvoice} onClose={() => setViewInvoice(null)} />
+            <InvoiceViewModal
+        invoice={viewInvoice}
+        onClose={() => setViewInvoice(null)}
+        onRequestSendInvoice={(inv) => setConfirmSendInvoice(inv)}
+        isSendingInvoice={isSendingInvoice}
+      />
+      <ConfirmSendInvoiceModal
+        invoice={confirmSendInvoice}
+        onClose={() => setConfirmSendInvoice(null)}
+        onConfirm={async () => {
+          if (confirmSendInvoice) {
+            await handleSendInvoice(confirmSendInvoice._id);
+            setConfirmSendInvoice(null);
+          }
+        }}
+        isSending={isSendingInvoice}
+      />
       <EditMemoModal invoice={editMemoInvoice} onClose={() => setEditMemoInvoice(null)}
         onSave={(id, description) => saveMemo({ id, description })} isSaving={isSaving} />
       <SendReceiptModal invoice={sendReceiptInvoice} onClose={() => setSendReceiptInvoice(null)}

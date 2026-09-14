@@ -20,9 +20,10 @@ import { FileText, CheckCircle, Pencil, ListOrdered, Eye, Send, View, Percent } 
 import { useAppSelector } from "@/store/hooks";
 import InstallmentPaymentModal from "../component/installment-payment-modal";
 import EditInstallmentsModal from "../component/edit-installments-modal";
-import { InvoiceViewModal } from "../component/invoice-receiving-list";
+import { InvoiceViewModal, ConfirmSendInvoiceModal } from "../component/invoice-receiving-list";
 import SendReceiptModal from "../component/send-receipt-modal";
 import CreateInvoiceModal from "../component/create-invoice-modal";
+import ChequeListModal from "../component/cheque-list-modal";
 import ExportButton from "@/app/component/ui/export-button";
 import DateRangeFilter from "@/app/component/dashboard/date-range-filter";
 import { deleteInvoice } from "@/utils/api";
@@ -30,6 +31,7 @@ import { Trash2 } from "lucide-react";
 import DeleteInvoiceModal from "../component/delete-invoice-modal";
 import ImportButton from "../component/import-button";
 import BulkDiscountModal from "../component/import-discount-button";
+
 
 // ── Status badge colors ──────────────────────────────────────────
 const statusColor = (status: string) => {
@@ -170,6 +172,10 @@ export default function InvoicesPage() {
 
   const [viewInvoice, setViewInvoice] = useState<any>(null);
   const [isSendingInvoice, setIsSendingInvoice] = useState(false);
+  const [confirmSendInvoice, setConfirmSendInvoice] = useState<any>(null);
+  const [isSendingInvoiceFromView, setIsSendingInvoiceFromView] = useState(false);
+  const [chequeListInvoice, setChequeListInvoice] = useState<any>(null);
+  const [chequeListPreselectedInstallmentId, setChequeListPreselectedInstallmentId] = useState<string | null>(null);
 
   const handleSendInvoice = async (invoiceId: string) => {
     setIsSendingInvoice(true);
@@ -218,9 +224,22 @@ export default function InvoicesPage() {
     if (!window.confirm(`Sure cancel invoice ${inv.invoiceNumber}? Sab payments void ho jayenge.`)) return;
     removeInvoice({ id: inv._id, reason });
   };
+    const handleSendInvoiceFromView = async (invoiceId: string) => {
+    setIsSendingInvoiceFromView(true);
+    try {
+      await sendInvoiceEmail(invoiceId);
+      toast.success("Invoice email sent ✅");
+      setConfirmSendInvoice(null);
+    } catch {
+      toast.error("Failed to send invoice email ❌");
+    } finally {
+      setIsSendingInvoiceFromView(false);
+    }
+  };
 
   const invoiceList = isStudent ? (data?.data ?? data ?? []) : (data?.data ?? []);
   const totalCount = isStudent ? invoiceList.length : (data?.meta?.total ?? 0);
+
 
   return (
     <>
@@ -449,11 +468,11 @@ export default function InvoicesPage() {
                 className: "hover:bg-blue-50 hover:text-blue-600",
                 disabled: () => isSendingInvoice,
               },
-              {
-                icon: <Send size={14} />,
-                label: "Send Invoice",
-                onClick: (inv: any) => handleSendInvoice(inv._id),
-                className: "hover:bg-yellow-50 hover:text-yellow-600",
+                            {
+                icon: <FileText size={14} />,
+                label: "Cheques",
+                onClick: (inv: any) => setChequeListInvoice(inv),
+                className: "hover:bg-violet-50 hover:text-violet-600",
               },
               ...(canDelete
                 ? [{
@@ -500,12 +519,32 @@ export default function InvoicesPage() {
             />
           )}
 
-          <InvoiceViewModal invoice={viewInvoice} onClose={() => setViewInvoice(null)} />
+                    <InvoiceViewModal
+            invoice={viewInvoice}
+            onClose={() => setViewInvoice(null)}
+            onRequestSendInvoice={(inv) => setConfirmSendInvoice(inv)}
+            isSendingInvoice={isSendingInvoiceFromView}
+          />
+          <ConfirmSendInvoiceModal
+            invoice={confirmSendInvoice}
+            onClose={() => setConfirmSendInvoice(null)}
+            onConfirm={async () => {
+              if (confirmSendInvoice) {
+                await handleSendInvoiceFromView(confirmSendInvoice._id);
+              }
+            }}
+            isSending={isSendingInvoiceFromView}
+          />
 
           {/* Pay installments modal */}
           <InstallmentPaymentModal
             invoice={installmentInvoice}
             onClose={() => setInstallmentInvoice(null)}
+            onGoToCheques={(installmentId) => {
+              setChequeListInvoice(installmentInvoice);
+              setChequeListPreselectedInstallmentId(installmentId);
+              setInstallmentInvoice(null);
+            }}
           />
 
           {/* Edit/Add installments modal — NEW */}
@@ -520,12 +559,19 @@ export default function InvoicesPage() {
             isLoading={isDeleting}
             onConfirm={(reason) => removeInvoice({ id: deletingInvoice._id, reason })}
           />
+            <ChequeListModal
+            invoice={chequeListInvoice}
+            onClose={() => { setChequeListInvoice(null); setChequeListPreselectedInstallmentId(null); }}
+            preselectedInstallmentId={chequeListPreselectedInstallmentId}
+          />
 
           {showBulkDiscount && (
             <BulkDiscountModal
               onClose={() => setShowBulkDiscount(false)}
               onDone={() => queryClient.invalidateQueries({ queryKey: ["invoices"] })}
             />
+
+          
           )}
         </>
       )}

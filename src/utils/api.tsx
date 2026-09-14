@@ -243,7 +243,28 @@ export const markInstallmentPaid = (invoiceId: string, installmentId: string, pa
     { headers: { "Content-Type": "multipart/form-data" } }
   );
 };
+export const recordChequePayment = (
+  invoiceId: string,
+  data: {
+    accountHolderName: string;
+    cheques: { chequeNumber: string; amount: number; date?: string }[];
+    notes?: string;
+    paidDate?: string;
+  }
+) => API.post(`/api/v1/finance/invoices/${invoiceId}/cheques`, data);
 
+export const getInvoiceCheques = (invoiceId: string) =>
+  API.get(`/api/v1/finance/invoices/${invoiceId}/cheques`);
+
+export const discardCheque = (invoiceId: string, chequeId: string, reason?: string) =>
+  API.patch(`/api/v1/finance/invoices/${invoiceId}/cheques/${chequeId}/discard`, { reason });
+
+export const bounceCheque = (
+  invoiceId: string,
+  chequeId: string,
+  data: { depositDate: string; bounceDate: string; reason?: string }
+) => API.patch(`/api/v1/finance/invoices/${invoiceId}/cheques/${chequeId}/bounce`, data);
+  
 export const correctPaidInstallment = (
   invoiceId: string,
   installmentId: string,
