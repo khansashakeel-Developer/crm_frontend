@@ -250,6 +250,7 @@ export const recordChequePayment = (
     cheques: { chequeNumber: string; amount: number; date?: string }[];
     notes?: string;
     paidDate?: string;
+    isBackfill?: boolean;
   }
 ) => API.post(`/api/v1/finance/invoices/${invoiceId}/cheques`, data);
 
