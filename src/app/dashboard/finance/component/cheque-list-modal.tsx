@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { bounceCheque, discardCheque, getInvoiceCheques, getInvoiceById, recordChequePayment } from "@/utils/api";
+import { bounceCheque, discardCheque, returnCheque, updateCheque, getInvoiceCheques, getInvoiceById, recordChequePayment } from "@/utils/api";
 import toast from "react-hot-toast";
 import { X, FileText, Ban, CheckCircle2, Plus, Trash2 } from "lucide-react";
+
 
 const fmt = (n: number) => `Rs ${Number(n || 0).toLocaleString("en-PK")}`;
 const fmtDate = (d: string | null) =>
@@ -14,6 +15,7 @@ const statusStyle = (status: string) => {
     pending: "bg-sky-100 text-sky-700",
     cleared: "bg-green-100 text-green-700",
     bounced: "bg-rose-100 text-rose-700",
+    returned: "bg-gray-200 text-gray-600",
   };
   return map[status] || "bg-gray-100 text-gray-600";
 };
@@ -41,9 +43,12 @@ export default function ChequeListModal({ invoice, onClose, preselectedInstallme
   const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
   const [bouncingChequeId, setBouncingChequeId] = useState<string | null>(null);
   const [bounceForm, setBounceForm] = useState({ depositDate: "", bounceDate: "", reason: "" });
+  const [editingChequeId, setEditingChequeId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ accountHolderName: "", chequeNumber: "", amount: "", date: "" });
   const [showAddForm, setShowAddForm] = useState(!!preselectedInstallmentId);
   const [accountHolderName, setAccountHolderName] = useState("");
   const [cheques, setCheques] = useState([{ chequeNumber: "", amount: "", date: "" }]);
+  const [isBackfill, setIsBackfill] = useState(false);
 
   const { data: liveInvoice } = useQuery({
     queryKey: ["invoice-cheques-invoice", invoice?._id],
@@ -61,6 +66,7 @@ export default function ChequeListModal({ invoice, onClose, preselectedInstallme
   const resetForm = () => {
     setAccountHolderName("");
     setCheques([{ chequeNumber: "", amount: "", date: "" }]);
+    setIsBackfill(false);
   };
 
   const addRow = () => setCheques((p) => [...p, { chequeNumber: "", amount: "", date: "" }]);
@@ -70,12 +76,15 @@ export default function ChequeListModal({ invoice, onClose, preselectedInstallme
 
   const total = cheques.reduce((sum, c) => sum + Number(c.amount || 0), 0);
   const activeInvoice = liveInvoice || invoice;
+  const isZeroRemaining = (activeInvoice?.remainingAmount || 0) <= 0;
   const isFormValid =
     accountHolderName.trim() &&
     cheques.length > 0 &&
     cheques.every((c) => c.chequeNumber.trim() && Number(c.amount) > 0) &&
     total > 0 &&
-    total <= (activeInvoice?.remainingAmount || 0);
+    (isBackfill
+      ? total <= (activeInvoice?.totalAmount || 0)
+      : total <= (activeInvoice?.remainingAmount || 0));
 
       const { mutate: submitCheques, isPending: isSubmitting } = useMutation({
     mutationFn: () =>
@@ -86,6 +95,7 @@ export default function ChequeListModal({ invoice, onClose, preselectedInstallme
           amount: Number(c.amount),
           date: c.date || undefined,
         })),
+        isBackfill,
       }),
     onSuccess: () => {
       toast.success("Cheque payment recorded");
@@ -112,6 +122,41 @@ export default function ChequeListModal({ invoice, onClose, preselectedInstallme
     },
     onError: (e: any) => toast.error(e?.response?.data?.message || "Failed to clear cheque"),
   });
+
+    const { mutate: runReturn, isPending: isReturning, variables: returnVars } = useMutation({
+    mutationFn: ({ chequeId }: { chequeId: string }) => returnCheque(invoice._id, chequeId),
+    onSuccess: () => {
+      toast.success("Cheque returned to client");
+      queryClient.invalidateQueries({ queryKey: ["invoice-cheques", invoice._id] });
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Failed to return cheque"),
+  });
+
+    const { mutate: runUpdate, isPending: isUpdating } = useMutation({
+    mutationFn: ({ chequeId }: { chequeId: string }) =>
+      updateCheque(invoice._id, chequeId, {
+        accountHolderName: editForm.accountHolderName.trim(),
+        chequeNumber: editForm.chequeNumber.trim(),
+        amount: Number(editForm.amount),
+        date: editForm.date || undefined,
+      }),
+    onSuccess: () => {
+      toast.success("Cheque updated");
+      setEditingChequeId(null);
+      queryClient.invalidateQueries({ queryKey: ["invoice-cheques", invoice._id] });
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Failed to update cheque"),
+  });
+
+  const startEdit = (cheque: any) => {
+    setEditingChequeId(cheque._id);
+    setEditForm({
+      accountHolderName: cheque.accountHolderName || "",
+      chequeNumber: cheque.chequeNumber || "",
+      amount: String(cheque.amount || ""),
+      date: cheque.date ? cheque.date.split("T")[0] : "",
+    });
+  };
 
   const { mutate: runBounce, isPending: isBouncing } = useMutation({
     mutationFn: ({ chequeId }: { chequeId: string }) =>
@@ -226,10 +271,10 @@ export default function ChequeListModal({ invoice, onClose, preselectedInstallme
 
                                         {cheque.status === "pending" && validity !== "expired" && (
                       <>
-                        <div className="flex justify-end gap-3 mt-1.5">
+                                                <div className="flex justify-end gap-3 mt-1.5">
                           {confirmingKey === key ? (
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[11px] text-gray-500">Cleared?</span>
+                              <span className="text-[11px] text-gray-500">Deposit & count as payment?</span>
                               <button
                                 onClick={() => runDiscard({ chequeId: cheque._id })}
                                 disabled={isDiscarding}
@@ -250,16 +295,30 @@ export default function ChequeListModal({ invoice, onClose, preselectedInstallme
                               </button>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => setConfirmingKey(key)}
-                              className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700"
-                            >
-                              <CheckCircle2 size={12} />
-                              Discard (Cleared)
-                            </button>
+                            <>
+                              <button
+                                onClick={() => runReturn({ chequeId: cheque._id })}
+                                disabled={isReturning}
+                                className="flex items-center gap-1 text-[11px] font-semibold text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                              >
+                                {isReturning && returnVars?.chequeId === cheque._id ? (
+                                  <span className="w-3 h-3 inline-block border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                                ) : (
+                                  <CheckCircle2 size={12} />
+                                )}
+                                Return
+                              </button>
+
+                              <button
+                                onClick={() => setConfirmingKey(key)}
+                                className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700"
+                              >
+                                Deposit
+                              </button>
+                            </>
                           )}
 
-                          {bouncingChequeId !== cheque._id && (
+                                                    {bouncingChequeId !== cheque._id && (
                             <button
                               onClick={() => setBouncingChequeId(cheque._id)}
                               className="flex items-center gap-1 text-[11px] font-semibold text-rose-500 hover:text-rose-600"
@@ -268,7 +327,71 @@ export default function ChequeListModal({ invoice, onClose, preselectedInstallme
                               Bounce
                             </button>
                           )}
+
+                          {confirmingKey !== key && bouncingChequeId !== cheque._id && (
+                            <button
+                              onClick={() => startEdit(cheque)}
+                              className="text-[11px] font-semibold text-violet-500 hover:text-violet-600"
+                            >
+                              Edit
+                            </button>
+                          )}
                         </div>
+
+                        {editingChequeId === cheque._id && (
+                          <div className="mt-2 border border-violet-200 bg-violet-50/40 rounded-lg p-2.5 space-y-1.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-violet-600">Edit Cheque</p>
+                            <input
+                              type="text"
+                              placeholder="Account Holder Name *"
+                              value={editForm.accountHolderName}
+                              onChange={(e) => setEditForm((p) => ({ ...p, accountHolderName: e.target.value }))}
+                              className="w-full text-xs rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                            />
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <input
+                                type="text"
+                                placeholder="Cheque No. *"
+                                value={editForm.chequeNumber}
+                                onChange={(e) => setEditForm((p) => ({ ...p, chequeNumber: e.target.value }))}
+                                className="text-xs rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                              />
+                              <input
+                                type="number"
+                                placeholder="Amount *"
+                                value={editForm.amount}
+                                onChange={(e) => setEditForm((p) => ({ ...p, amount: e.target.value }))}
+                                className="text-xs rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                              />
+                            </div>
+                            <input
+                              type="date"
+                              value={editForm.date}
+                              onChange={(e) => setEditForm((p) => ({ ...p, date: e.target.value }))}
+                              className="w-full text-xs rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                            />
+                            <div className="flex gap-2 justify-end pt-0.5">
+                              <button
+                                onClick={() => setEditingChequeId(null)}
+                                className="text-[11px] font-semibold text-gray-500 hover:text-gray-700 px-2 py-1"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => runUpdate({ chequeId: cheque._id })}
+                                disabled={
+                                  isUpdating ||
+                                  !editForm.accountHolderName.trim() ||
+                                  !editForm.chequeNumber.trim() ||
+                                  !(Number(editForm.amount) > 0)
+                                }
+                                className="text-[11px] font-bold text-white bg-violet-600 hover:bg-violet-700 px-3 py-1 rounded-md disabled:opacity-50"
+                              >
+                                {isUpdating ? "Saving..." : "Save"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {bouncingChequeId === cheque._id && (
                           <div className="mt-2 border border-rose-200 bg-rose-50 rounded-lg p-2.5 space-y-1.5">
@@ -334,16 +457,30 @@ export default function ChequeListModal({ invoice, onClose, preselectedInstallme
 
           {!showAddForm ? (
             <button
-              onClick={() => setShowAddForm(true)}
-              disabled={(activeInvoice?.remainingAmount || 0) <= 0}
-              className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-violet-200 text-sm font-semibold text-violet-600 hover:bg-violet-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={() => { setShowAddForm(true); setIsBackfill(isZeroRemaining); }}
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-violet-200 text-sm font-semibold text-violet-600 hover:bg-violet-50"
             >
-              <Plus size={14} />
+             <Plus size={14} />
               Record New Cheque(s)
             </button>
           ) : (
             <div className="border border-violet-200 rounded-xl bg-violet-50/40 p-3 space-y-2.5">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-violet-600">New Cheque Payment</p>
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-violet-600">
+                {isBackfill ? "Historical Cheque Entry" : "New Cheque Payment"}
+              </p>
+
+              <label className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2 text-[10px] text-amber-700">
+                <input
+                  type="checkbox"
+                  checked={isBackfill}
+                  onChange={(e) => setIsBackfill(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  This is a historical cheque already accounted for (e.g. from before this system). Logging it here
+                  is for record-keeping only — it will <b>not</b> change Paid/Remaining amounts.
+                </span>
+              </label>
 
               <input
                 type="text"
@@ -395,9 +532,17 @@ export default function ChequeListModal({ invoice, onClose, preselectedInstallme
                 + Add another cheque
               </button>
 
-                            <div className={`flex items-center justify-between text-[10px] font-semibold px-2 py-1.5 rounded-lg ${total > 0 && total <= (activeInvoice?.remainingAmount || 0) ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-600"}`}>
+              <div className={`flex items-center justify-between text-[10px] font-semibold px-2 py-1.5 rounded-lg ${
+                total > 0 && (isBackfill ? total <= (activeInvoice?.totalAmount || 0) : total <= (activeInvoice?.remainingAmount || 0))
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-rose-100 text-rose-600"
+              }`}>
                 <span>Cheque Total: {fmt(total)}</span>
-                <span>Remaining: {fmt(activeInvoice?.remainingAmount || 0)}</span>
+                {isBackfill ? (
+                  <span>Invoice Total: {fmt(activeInvoice?.totalAmount || 0)}</span>
+                ) : (
+                  <span>Remaining: {fmt(activeInvoice?.remainingAmount || 0)}</span>
+                )}
               </div>
 
               <div className="flex gap-2 justify-end pt-1">

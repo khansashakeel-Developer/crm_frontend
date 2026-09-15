@@ -12,9 +12,14 @@ import Loader from "../component/loader/Loader";
 export default function ConditionLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const { user: authUser } = useAppSelector((state) => state.auth);
   const role = authUser?.role;
-  const isUserForResponsive = role === "user";
+  const isUserForResponsive = mounted && role === "user";
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {

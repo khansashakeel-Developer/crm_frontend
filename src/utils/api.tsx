@@ -259,6 +259,15 @@ export const getInvoiceCheques = (invoiceId: string) =>
 export const discardCheque = (invoiceId: string, chequeId: string, reason?: string) =>
   API.patch(`/api/v1/finance/invoices/${invoiceId}/cheques/${chequeId}/discard`, { reason });
 
+export const returnCheque = (invoiceId: string, chequeId: string) =>
+  API.patch(`/api/v1/finance/invoices/${invoiceId}/cheques/${chequeId}/return`, {});
+
+export const updateCheque = (
+  invoiceId: string,
+  chequeId: string,
+  data: { accountHolderName: string; chequeNumber: string; amount: number; date?: string }
+) => API.patch(`/api/v1/finance/invoices/${invoiceId}/cheques/${chequeId}/edit`, data);
+
 export const bounceCheque = (
   invoiceId: string,
   chequeId: string,
