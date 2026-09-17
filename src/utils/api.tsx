@@ -243,7 +243,38 @@ export const markInstallmentPaid = (invoiceId: string, installmentId: string, pa
     { headers: { "Content-Type": "multipart/form-data" } }
   );
 };
+export const recordChequePayment = (
+  invoiceId: string,
+  data: {
+    accountHolderName: string;
+    cheques: { chequeNumber: string; amount: number; date?: string }[];
+    notes?: string;
+    paidDate?: string;
+    isBackfill?: boolean;
+  }
+) => API.post(`/api/v1/finance/invoices/${invoiceId}/cheques`, data);
 
+export const getInvoiceCheques = (invoiceId: string) =>
+  API.get(`/api/v1/finance/invoices/${invoiceId}/cheques`);
+
+export const discardCheque = (invoiceId: string, chequeId: string, reason?: string) =>
+  API.patch(`/api/v1/finance/invoices/${invoiceId}/cheques/${chequeId}/discard`, { reason });
+
+export const returnCheque = (invoiceId: string, chequeId: string) =>
+  API.patch(`/api/v1/finance/invoices/${invoiceId}/cheques/${chequeId}/return`, {});
+
+export const updateCheque = (
+  invoiceId: string,
+  chequeId: string,
+  data: { accountHolderName: string; chequeNumber: string; amount: number; date?: string }
+) => API.patch(`/api/v1/finance/invoices/${invoiceId}/cheques/${chequeId}/edit`, data);
+
+export const bounceCheque = (
+  invoiceId: string,
+  chequeId: string,
+  data: { depositDate: string; bounceDate: string; reason?: string }
+) => API.patch(`/api/v1/finance/invoices/${invoiceId}/cheques/${chequeId}/bounce`, data);
+  
 export const correctPaidInstallment = (
   invoiceId: string,
   installmentId: string,

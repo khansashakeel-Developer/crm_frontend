@@ -31,6 +31,7 @@ interface Installment {
   feeType?: "program" | "certificate" | "manual";   // 👈 add
   paidAmount?: number;
   receiptUrl?: string | null;
+  method?: string | null;
 }
 
 interface Invoice {
@@ -47,6 +48,7 @@ interface Invoice {
 interface Props {
   invoice: Invoice | null;
   onClose: () => void;
+  onGoToCheques?: (installmentId: string) => void;
 }
 
 type PaymentMethod = "cash" | "bank" | "cheque" | "manual";
@@ -84,7 +86,7 @@ const PAYMENT_TABS: {
       color: "text-slate-500",
       activeColor: "text-emerald-600 bg-emerald-50 border-emerald-200",
     },
-    {
+        {
       key: "bank",
       label: "Bank Transfer",
       icon: <Building2 size={13} />,
@@ -107,18 +109,18 @@ const PAYMENT_TABS: {
     },
   ];
 
-export default function InstallmentPaymentModal({ invoice, onClose }: Props) {
+export default function InstallmentPaymentModal({ invoice, onClose, onGoToCheques }: Props) {
   const queryClient = useQueryClient();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const todayStr = () => new Date().toISOString().split("T")[0];
-  const [paymentForm, setPaymentForm] = useState<PaymentFormState>({
+    const [paymentForm, setPaymentForm] = useState<PaymentFormState>({
     method: null,
     referenceNumber: "",
     notes: "",
     receipt: null,
     paidDate: todayStr(),
   });
-  const [correctingInstallment, setCorrectingInstallment] = useState<any>(null);
+    const [correctingInstallment, setCorrectingInstallment] = useState<any>(null);
   // const [voidingInstallment, setVoidingInstallment] = useState<any>(null);
 
   // Check if form is valid to enable Confirm button
@@ -128,7 +130,7 @@ export default function InstallmentPaymentModal({ invoice, onClose }: Props) {
     if (!paymentForm.paidDate) return false;
 
     if (
-      ["bank", "cheque"].includes(paymentForm.method) &&
+      paymentForm.method === "bank" &&
       !paymentForm.referenceNumber.trim()
     ) {
       return false;
@@ -137,7 +139,7 @@ export default function InstallmentPaymentModal({ invoice, onClose }: Props) {
     return true;
   };
 
-  const { mutate: payInstallment, isPending } = useMutation({
+    const { mutate: payInstallment, isPending } = useMutation({
     mutationFn: ({ installmentId }: { installmentId: string }) =>
       markInstallmentPaid(invoice!._id, installmentId, {
         method: paymentForm.method!,
@@ -159,7 +161,7 @@ export default function InstallmentPaymentModal({ invoice, onClose }: Props) {
       toast.error(e?.response?.data?.message || "Failed to mark installment!"),
   });
 
-  const handleConfirmingOpen = (id: string) => {
+      const handleConfirmingOpen = (id: string) => {
     setConfirmingId(id);
     setPaymentForm({ method: null, referenceNumber: "", notes: "", receipt: null, paidDate: todayStr() });
   };
@@ -353,15 +355,17 @@ export default function InstallmentPaymentModal({ invoice, onClose }: Props) {
                           </button>
                         ) : (
                           <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={handleConfirmingClose}
-                              className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={() => payInstallment({ installmentId: inst._id })}
-                              disabled={!isFormValid() || isPending}
+                    <button
+                    onClick={handleConfirmingClose}
+                    className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
+                  >
+                    Cancel
+                  </button>
+
+                  {paymentForm.method !== "cheque" && (
+                  <button
+                    onClick={() => payInstallment({ installmentId: inst._id })}
+                    disabled={!isFormValid() || isPending}
                               className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${isFormValid() && !isPending
                                 ? "bg-emerald-500 text-white hover:bg-emerald-600 cursor-pointer"
                                 : "bg-slate-200 text-slate-400 cursor-not-allowed opacity-60"
@@ -378,7 +382,8 @@ export default function InstallmentPaymentModal({ invoice, onClose }: Props) {
                                   Confirm
                                 </>
                               )}
-                            </button>
+                                                        </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -389,8 +394,8 @@ export default function InstallmentPaymentModal({ invoice, onClose }: Props) {
                   {isConfirming && (
                     <div className="px-4 pb-4 space-y-3 border-t border-slate-100 pt-3">
 
-                      {/* Warning */}
-                      <div className="flex items-start gap-2">
+                                            {/* Warning */}
+                                            <div className="flex items-start gap-2">
                         <AlertCircle size={13} className="text-amber-500 mt-0.5 flex-shrink-0" />
                         <p className="text-xs text-amber-700">
                           Marking <strong>Rs {formatAmt(inst.amount)}</strong> as paid.
@@ -411,7 +416,7 @@ export default function InstallmentPaymentModal({ invoice, onClose }: Props) {
                       </div>
 
                       {/* Method Tabs */}
-                      <div className="grid grid-cols-4 gap-1.5">
+                          <div className="grid grid-cols-4 gap-1.5">
                         {PAYMENT_TABS.map((tab) => (
                           <button
                             key={tab.key}
@@ -485,37 +490,23 @@ export default function InstallmentPaymentModal({ invoice, onClose }: Props) {
                         </div>
                       )}
 
-                      {paymentForm.method === "cheque" && (
-                        <div className="rounded-lg bg-violet-50 border border-violet-100 px-3 py-2.5 space-y-2">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-violet-600">
-                            Cheque Details
+                                            
+                                            {paymentForm.method === "cheque" && (
+                        <div className="rounded-lg bg-violet-50 border border-violet-100 px-3 py-3 space-y-2 text-center">
+                          <FileText size={18} className="text-violet-400 mx-auto" />
+                          <p className="text-xs text-violet-700 font-medium">
+                            Cheque payments are recorded on the Cheques screen, where each cheque is tracked individually.
                           </p>
-                          <input
-                            type="text"
-                            placeholder="Cheque Number *"
-                            value={paymentForm.referenceNumber}
-                            onChange={(e) =>
-                              setPaymentForm((prev) => ({
-                                ...prev,
-                                referenceNumber: e.target.value,
-                              }))
-                            }
-                            className="w-full text-xs rounded-lg border border-violet-200 bg-white px-3 py-2 text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-violet-300"
-                          />
-                          <textarea
-                            rows={2}
-                            placeholder="Description"
-                            value={paymentForm.notes}
-                            onChange={(e) =>
-                              setPaymentForm((prev) => ({ ...prev, notes: e.target.value }))
-                            }
-                            className="w-full text-xs rounded-lg border border-violet-200 bg-white px-3 py-2 text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none"
-                          />
-                          {!paymentForm.referenceNumber.trim() && (
-                            <p className="text-[10px] text-rose-500 font-medium">
-                              Cheque number is required.
-                            </p>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleConfirmingClose();
+                              onGoToCheques?.(inst._id);
+                            }}
+                            className="text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-lg"
+                          >
+                            Go to Cheques Screen →
+                          </button>
                         </div>
                       )}
 
@@ -548,7 +539,7 @@ export default function InstallmentPaymentModal({ invoice, onClose }: Props) {
                         </div>
                       )}
 
-                      {/* 👇 YAHAN — receipt upload, common for all methods */}
+                    {/* receipt upload, common for all methods */}
                       {paymentForm.method && (
                         <div className="rounded-lg bg-slate-50 border border-dashed border-slate-200 px-3 py-2.5 space-y-1.5">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
