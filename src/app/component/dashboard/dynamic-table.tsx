@@ -11,12 +11,12 @@ type Column = {
 };
 
 type Action = {
-  icon: React.ReactNode;
-  label?: string;
+  icon: React.ReactNode | ((item: any) => React.ReactNode);
+  label?: string | ((item: any) => string);
   onClick: (item: any) => void;
   show?: (item: any) => boolean;
   hidden?: (item: any) => boolean;
-  className?: string;
+  className?: string | ((item: any) => string);
   disabled?: (item: any) => boolean;
 };
 
@@ -62,6 +62,10 @@ const Spinner = () => (
   </div>
 );
 
+function resolveActionValue<T>(value: T | ((item: any) => T), item: any): T {
+  return typeof value === "function" ? (value as (item: any) => T)(item) : value;
+}
+
 // --- Card View ---
 function CardView({ data, columns, actions, currentPage, pageSize, onRowClick, showSerial = true }: {   // 👈 default true
   data: any[]; columns: Column[]; actions: Action[]; currentPage: number; pageSize: number; onRowClick?: (item: any) => void;
@@ -100,15 +104,15 @@ function CardView({ data, columns, actions, currentPage, pageSize, onRowClick, s
                         }}
                         disabled={action.disabled ? action.disabled(item) : false}
                         className={`p-1.5 rounded-lg text-gray-400 transition
-                          ${action.className || "hover:bg-gray-100 hover:text-gray-600"}
+                          ${resolveActionValue(action.className, item) || "hover:bg-gray-100 hover:text-gray-600"}
                           ${action.disabled && action.disabled(item) ? "cursor-not-allowed opacity-50" : ""}
                         `}
                       >
-                        {action.icon}
+                        {resolveActionValue(action.icon, item)}
                       </button>
                       {action.label && (
                         <span className="absolute left-1/2 -translate-x-1/2 -top-8 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/btn:opacity-100 transition whitespace-nowrap z-10">
-                          {action.label}
+                          {resolveActionValue(action.label, item)}
                         </span>
                       )}
                     </div>
@@ -218,15 +222,15 @@ function TableView({ data, columns, actions, currentPage, pageSize, onRowClick,
                             }}
                             disabled={action.disabled ? action.disabled(item) : false}
                             className={`p-2 rounded-lg text-gray-400 transition
-                              ${action.className || "hover:bg-gray-100 hover:text-gray-600"}
+                              ${resolveActionValue(action.className, item) || "hover:bg-gray-100 hover:text-gray-600"}
                             ${action.disabled && action.disabled(item) ? "cursor-not-allowed opacity-50" : ""}
                           `}
                           >
-                            {action.icon}
+                            {resolveActionValue(action.icon, item)}
                           </button>
                           {action.label && (
                             <span className="absolute left-1/2 -translate-x-1/2 -top-8 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap z-10">
-                              {action.label}
+                              {resolveActionValue(action.label, item)}
                             </span>
                           )}
                         </div>

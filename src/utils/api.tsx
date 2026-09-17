@@ -375,6 +375,36 @@ export const voidInstallmentPayment = (
     data
   );
 
+// QuickBooks Integration
+export const getQboStatus = () => API.get("/api/qbo/status");
+export const connectQbo = () => API.get("/api/qbo/connect");
+export const disconnectQbo = () => API.post("/api/qbo/disconnect");
+export const getQboCustomers = (params: any) => API.get("/api/qbo/customers", { params });
+export const getQboInvoices = (params: any) => API.get("/api/qbo/invoices", { params });
+export const getQboPayments = (params: any) => API.get("/api/qbo/payments", { params });
+export const compareQboInvoices = () => API.get("/api/qbo/compare/invoices");
+export const compareQboPayments = () => API.get("/api/qbo/compare/payments");
+export const compareQboCustomers = () => API.get("/api/qbo/compare/customers");
+export const getQboHealth = () => API.get("/api/qbo/monitor/health");
+export const retryQboFailed = (type: string) => API.post("/api/qbo/monitor/retry-failed", { type });
+export const retryQboSingle = (type: string, id: string) => API.post(`/api/qbo/monitor/retry-failed/${type}/${id}`);
+export const linkQboRecord = (type: string, id: string, qboId: string) =>
+  API.post(`/api/qbo/link/${type}/${id}`, { [`qbo${type[0].toUpperCase()}${type.slice(1)}Id`]: qboId });
+export const dryRunQboInvoice = (id: string) => API.post(`/api/qbo/test/sync/invoice/${id}`);
+export const syncQboInvoiceNow = (id: string) => API.post(`/api/qbo/sync/invoice/${id}`);
+export const syncQboPaymentNow = (id: string) => API.post(`/api/qbo/sync/payment/${id}`);
+export const getUnlinkedCrmRecords = (type: string, search: string, limit: number) =>
+  API.get(`/api/qbo/unlinked/${type}`, { params: { search, limit } });
+export const unlinkQboRecord = (type: string, id: string) =>
+  API.post(`/api/qbo/unlink/${type}/${id}`);
+
+export const getQboImportList = (search: string) => API.get("/api/qbo/list", { params: { search } });
+export const getQboImportDetail = (qboInvoiceId: string) => API.get(`/api/qbo/detail/${qboInvoiceId}`);
+export const importQboInvoice = (qboInvoiceId: string, userId: string, enrollmentIds: string[]) =>
+  API.post("/api/qbo/invoice", { qboInvoiceId, userId, enrollmentIds });
+export const searchCrmUsers = (q: string) => API.get("/api/leads/enrollments/search", { params: { q } }); // adjust to your actual user-search endpoint
+export const getUserEnrollments = (userId: string) =>
+  API.get(`/api/qbo/enrollments/${userId}`);
 export const updateEnrollment = (id: string, data: any) => API.put(`/api/v1/enrollments/${id}`, data);
 export const deleteEnrollment = (id: string) => API.delete(`/api/v1/enrollments/${id}`);
 

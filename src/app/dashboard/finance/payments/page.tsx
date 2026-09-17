@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getAllPayments, addPayment, updatePayment, approvePayment, rejectPayment,
-  sendPaymentsReportEmail, // 👈 naya import
+  sendPaymentsReportEmail, syncQboPaymentNow
 } from "@/utils/api";
 import PageHeader, { FilterField } from "@/app/component/dashboard/page-header";
 import DynamicTable from "@/app/component/dashboard/dynamic-table";
@@ -11,7 +11,7 @@ import Modal from "@/app/component/ui/model/modal";
 import Popup from "@/app/component/ui/popup/popup";
 import { ModalField } from "@/types/ui";
 import toast from "react-hot-toast";
-import { Receipt, CheckCircle, XCircle, Pencil } from "lucide-react";
+import { Receipt, CheckCircle, XCircle, Pencil, UploadCloud, Loader2 } from "lucide-react";
 import ExportButton from "@/app/component/ui/export-button";
 import DateRangeFilter from "@/app/component/dashboard/date-range-filter";
 import EmailAdminDropdown from "@/app/component/ui/email-admin-dropdown"; // 👈 naya import
@@ -80,6 +80,7 @@ export default function PaymentsPage() {
   const [approvingPayment, setApprovingPayment] = useState<any>(null);
   const [rejectingPayment, setRejectingPayment] = useState<any>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]); // 👈 naya state — checkbox selection k liye
+  const [syncingNowId, setSyncingNowId] = useState<string | null>(null);
 
   const filterFields: FilterField[] = [
     {
@@ -149,6 +150,18 @@ export default function PaymentsPage() {
     onSuccess: () => { toast.success("Payment rejected!"); setRejectingPayment(null); queryClient.invalidateQueries({ queryKey: ["payments"] }); },
     onError: () => toast.error("Failed!"),
   });
+
+  const handleSyncNow = async (paymentId: string) => {
+    setSyncingNowId(paymentId);
+    try {
+      await syncQboPaymentNow(paymentId);
+      toast.success("Synced to QuickBooks ✅");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "QBO sync failed ❌");
+    } finally {
+      setSyncingNowId(null);
+    }
+  };
 
   return (
     <>
@@ -226,7 +239,7 @@ export default function PaymentsPage() {
         selectedIds={selectedIds}
         onSelectAll={toggleSelectAll}
         onToggleSelect={toggleSelect}
-        showSerial={false}  
+        showSerial={false}
         columns={[
           {
             key: "invoiceNumber", label: "Invoice #",
@@ -287,6 +300,14 @@ export default function PaymentsPage() {
             onClick: (p) => setEditingPayment(p),
             className: "hover:bg-yellow-50 hover:text-yellow-600",
           },
+          // {
+          //   icon: syncingNowId ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />,
+          //   label: syncingNowId ? "Syncing..." : "Sync to QBO",
+          //   onClick: (p: any) => handleSyncNow(p._id),
+          //   className: "hover:bg-blue-50 hover:text-blue-600",
+          //   hidden: (p: any) => p.status !== "approved",
+          //   disabled: (p: any) => syncingNowId === p._id,
+          // },
         ]}
       />
 

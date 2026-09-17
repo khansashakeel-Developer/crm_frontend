@@ -9,14 +9,15 @@ import {
   sendReceivingInvoiceEmail,
   sendInvoiceEmail,
   getSalesRoleInvoices,
-  adminGetPrograms
+  adminGetPrograms,
+  syncQboInvoiceNow
 } from "@/utils/api";
 import PageHeader, { FilterField } from "@/app/component/dashboard/page-header";
 import DynamicTable from "@/app/component/dashboard/dynamic-table";
 import Modal from "@/app/component/ui/model/modal";
 import { ModalField } from "@/types/ui";
 import toast from "react-hot-toast";
-import { FileText, CheckCircle, Pencil, ListOrdered, Eye, Send, View, Percent } from "lucide-react";
+import { FileText, CheckCircle, Pencil, ListOrdered, Eye, Send, View, Percent, UploadCloud } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import InstallmentPaymentModal from "../component/installment-payment-modal";
 import EditInstallmentsModal from "../component/edit-installments-modal";
@@ -29,7 +30,10 @@ import { deleteInvoice } from "@/utils/api";
 import { Trash2 } from "lucide-react";
 import DeleteInvoiceModal from "../component/delete-invoice-modal";
 import ImportButton from "../component/import-button";
+import { PlayCircle } from "lucide-react";
 import BulkDiscountModal from "../component/import-discount-button";
+import { DryRunModal } from "../../quickbooks/component/qbo-modals";
+import { RefreshCw } from "lucide-react";
 
 // ── Status badge colors ──────────────────────────────────────────
 const statusColor = (status: string) => {
@@ -103,12 +107,15 @@ export default function InvoicesPage() {
     status: "", search: "", page: "1", limit: "10", dateFrom: "", dateTo: "",
     programIds: [] as string[],
     hasDiscount: false,
+    QboLense: false,
   });
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [installmentInvoice, setInstallmentInvoice] = useState<any>(null);
   const [editInstallmentInvoice, setEditInstallmentInvoice] = useState<any>(null); // ← NEW
   const [showBulkDiscount, setShowBulkDiscount] = useState(false);
+  const [dryRunInvoice, setDryRunInvoice] = useState<any>(null);
+  const [syncingNowId, setSyncingNowId] = useState<string | null>(null);
 
 
   const filterFields: FilterField[] = isAdmin
@@ -141,16 +148,16 @@ export default function InvoicesPage() {
       },
     ]
     : [
-    {
-      type: "select", name: "status",
-      options: [
-        { label: "Pending", value: "PENDING" },
-        { label: "Partial", value: "PARTIAL" },
-        { label: "Paid", value: "PAID" },
-        { label: "Overdue", value: "OVERDUE" },
-      ],
-    },
-  ];
+      {
+        type: "select", name: "status",
+        options: [
+          { label: "Pending", value: "PENDING" },
+          { label: "Partial", value: "PARTIAL" },
+          { label: "Paid", value: "PAID" },
+          { label: "Overdue", value: "OVERDUE" },
+        ],
+      },
+    ];
 
   const { data, isLoading, isError } = useQuery({
     queryKey: isStudent
@@ -164,7 +171,7 @@ export default function InvoicesPage() {
         ? () => getSalesRoleInvoices({ ...filters, page: Number(filters.page), limit: Number(filters.limit) }).then((r) => r.data)
         : () => getAllInvoices({
           ...filters,
-          programIds: filters.programIds.join(",") , page: Number(filters.page), limit: Number(filters.limit)
+          programIds: filters.programIds.join(","), page: Number(filters.page), limit: Number(filters.limit)
         }).then((r) => r.data),
   });
 
@@ -213,6 +220,76 @@ export default function InvoicesPage() {
     onError: (e: any) => toast.error(e?.response?.data?.message || "Delete failed!"),
   });
 
+  // ── Resolves which QBO action(s) apply to a given invoice row ──────
+  // status meanings (per Invoice schema qboSyncStatus enum):
+  //   "pending"/"skipped"/undefined → never synced → show Preview + Sync
+  //   "synced"                      → show Resync only
+  //   "failed"                      → show Resync ONLY if the invoice has
+  //                                    changed (e.g. a payment) since the
+  //                                    last sync attempt; otherwise show nothing
+  function getQboActions(inv: any, opts: {
+    onDryRun: (inv: any) => void;
+    onSync: (id: string) => void;
+    syncingId: string | null;
+  }) {
+    const status = inv.qboSyncStatus || "pending";
+    const { onDryRun, onSync, syncingId } = opts;
+    const isSyncing = syncingId === inv._id;
+
+    if (status === "synced") {
+      // already synced — only offer Resync (covers "added CPD/Manual/payment
+      // after the original sync" case; safe to click any time, it's a no-op
+      // in QBO if nothing actually changed)
+      return [
+        {
+          icon: isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />,
+          label: isSyncing ? "Resyncing..." : "Resync to QBO",
+          onClick: () => onSync(inv._id),
+          className: "hover:bg-blue-50 hover:text-blue-600",
+          disabled: () => isSyncing,
+        },
+      ];
+    }
+
+    if (status === "failed") {
+      // Only show Resync if the invoice has been updated (e.g. a payment)
+      // since the last sync attempt — requires qboLastAttemptAt on the
+      // Invoice model, set on every attempt (success or failure).
+      const hasNewChanges =
+        inv.updatedAt && inv.qboLastAttemptAt &&
+        new Date(inv.updatedAt) > new Date(inv.qboLastAttemptAt);
+
+      if (!hasNewChanges) {
+        // failed, but nothing changed since — no resync button at all
+        return [];
+      }
+      return [{
+        icon: isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />,
+        label: isSyncing ? "Resyncing..." : "Resync to QBO",
+        onClick: () => onSync(inv._id),
+        className: "hover:bg-rose-50 hover:text-rose-600",
+        disabled: () => isSyncing,
+      }];
+    }
+
+    // "pending" / "skipped" / anything else → never synced yet
+    return [
+      {
+        icon: <PlayCircle size={14} />,
+        label: "QBO Preview",
+        onClick: () => onDryRun(inv),
+        className: "hover:bg-yellow-50 hover:text-yellow-600",
+      },
+      {
+        icon: isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <UploadCloud size={14} />,
+        label: isSyncing ? "Syncing..." : "Sync to QBO",
+        onClick: () => onSync(inv._id),
+        className: "hover:bg-green-50 hover:text-green-600",
+        disabled: () => isSyncing,
+      },
+    ];
+  }
+
   const handleDeleteInvoice = (inv: any) => {
     const reason = window.prompt("Cancellation reason (optional):") || undefined;
     if (!window.confirm(`Sure cancel invoice ${inv.invoiceNumber}? Sab payments void ho jayenge.`)) return;
@@ -221,6 +298,52 @@ export default function InvoicesPage() {
 
   const invoiceList = isStudent ? (data?.data ?? data ?? []) : (data?.data ?? []);
   const totalCount = isStudent ? invoiceList.length : (data?.meta?.total ?? 0);
+
+  const handleSyncNow = async (invoiceId: string) => {
+    setSyncingNowId(invoiceId);
+    try {
+      await syncQboInvoiceNow(invoiceId);
+      toast.success("Synced to QuickBooks ✅");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "QBO sync failed ❌");
+    } finally {
+      setSyncingNowId(null);
+    }
+  };
+
+  // ── Small helper: picks the "preview" or "sync" slot from getQboActions ──
+  const qboSlot = (inv: any, which: "preview" | "sync") => {
+    const acts = getQboActions(inv, {
+      onDryRun: (i: any) => setDryRunInvoice(i),
+      onSync: handleSyncNow,
+      syncingId: syncingNowId,
+    });
+    if (!acts.length) return undefined;
+    return which === "preview" ? acts[0] : acts[acts.length - 1];
+  };
+
+  // Whether a row should hide the "preview" slot specifically
+  // (preview only makes sense when there are 2 actions — i.e. never synced)
+  const isPreviewHidden = (inv: any) => {
+    if (!filters.QboLense) return true;
+    const acts = getQboActions(inv, {
+      onDryRun: () => {},
+      onSync: () => {},
+      syncingId: syncingNowId,
+    });
+    return acts.length < 2;
+  };
+
+  // Whether a row should hide the "sync/resync" slot specifically
+  const isSyncHidden = (inv: any) => {
+    if (!filters.QboLense) return true;
+    const acts = getQboActions(inv, {
+      onDryRun: () => {},
+      onSync: () => {},
+      syncingId: syncingNowId,
+    });
+    return acts.length === 0;
+  };
 
   return (
     <>
@@ -281,6 +404,17 @@ export default function InvoicesPage() {
                 { header: "Created At", key: "createdAt", format: (v) => v ? new Date(v).toLocaleDateString("en-PK") : "—" },
               ]}
             />
+
+            <button
+              onClick={() => setFilters((f) => ({ ...f, QboLense: !f.QboLense }))}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${filters.QboLense
+                ? "bg-green-100 text-green-700 border-green-300 hover:bg-green-200"
+                : "border-gray-200 text-gray-600 hover:bg-yellow-50 hover:text-yellow-700 hover:border-yellow-200"
+                }`}
+            >
+              {filters.QboLense && <CheckCircle size={13} />}
+              QBO Lense
+            </button>
           </div>
         }
       />
@@ -422,25 +556,26 @@ export default function InvoicesPage() {
         actions={
           isAdmin
             ? [
-
               {
                 icon: <Pencil size={14} />,
                 label: "Edit Invoice",
                 onClick: (inv: any) => setEditingInvoice(inv),
                 className: "hover:bg-gray-50 hover:text-gray-700",
+                hidden: () => filters.QboLense,
               },
               {
                 icon: <ListOrdered size={14} />,
                 label: "Edit Installments",
                 onClick: (inv: any) => setEditInstallmentInvoice(inv),
                 className: "hover:bg-indigo-50 hover:text-indigo-600",
+                hidden: () => filters.QboLense,
               },
               {
                 icon: <CheckCircle size={14} />,
                 label: "Pay Installments",
                 onClick: (inv: any) => setInstallmentInvoice(inv),
                 className: "hover:bg-green-50 hover:text-green-600",
-                // hidden: (inv: any) => inv.status === "PAID",
+                hidden: () => filters.QboLense,
               },
               {
                 icon: <Eye size={14} />,
@@ -448,20 +583,48 @@ export default function InvoicesPage() {
                 onClick: (inv: any) => setViewInvoice(inv),
                 className: "hover:bg-blue-50 hover:text-blue-600",
                 disabled: () => isSendingInvoice,
+                hidden: () => filters.QboLense,
               },
               {
                 icon: <Send size={14} />,
                 label: "Send Invoice",
                 onClick: (inv: any) => handleSendInvoice(inv._id),
                 className: "hover:bg-yellow-50 hover:text-yellow-600",
+                hidden: () => filters.QboLense,
               },
+
+              // ✅ QBO Preview slot — visible ONLY when QboLense is on AND the
+              // invoice has never been synced (2-action case from getQboActions).
+              // `?? fallback` keeps these functions' return types non-undefined
+              // to satisfy DynamicTable's Action type — the row is hidden via
+              // isPreviewHidden whenever qboSlot would actually be undefined,
+              // so these fallbacks never render in practice.
+              {
+                icon: (inv: any) => qboSlot(inv, "preview")?.icon ?? null,
+                label: (inv: any) => qboSlot(inv, "preview")?.label ?? "",
+                onClick: (inv: any) => { qboSlot(inv, "preview")?.onClick(); },
+                className: (inv: any) => qboSlot(inv, "preview")?.className ?? "",
+                hidden: isPreviewHidden,
+              },
+              // ✅ Sync/Retry/Resync slot — visible ONLY when QboLense is on
+              // AND getQboActions actually returns a sync-type action for this row
+              // (hidden entirely for "failed with no new changes")
+              {
+                icon: (inv: any) => qboSlot(inv, "sync")?.icon ?? null,
+                label: (inv: any) => qboSlot(inv, "sync")?.label ?? "",
+                onClick: (inv: any) => { qboSlot(inv, "sync")?.onClick(); },
+                className: (inv: any) => qboSlot(inv, "sync")?.className ?? "",
+                hidden: isSyncHidden,
+                disabled: (inv: any) => syncingNowId === inv._id,
+              },
+
               ...(canDelete
                 ? [{
                   icon: <Trash2 size={14} />,
                   label: "Delete Invoice",
                   onClick: (inv: any) => setDeletingInvoice(inv),
                   className: "hover:bg-red-50 hover:text-red-600",
-                  hidden: (inv: any) => inv.status === "CANCELLED",
+                  hidden: (inv: any) => inv.status === "CANCELLED" || filters.QboLense,
                 }]
                 : []),
             ]
@@ -527,6 +690,12 @@ export default function InvoicesPage() {
               onDone={() => queryClient.invalidateQueries({ queryKey: ["invoices"] })}
             />
           )}
+
+          <DryRunModal
+            open={!!dryRunInvoice}
+            onClose={() => setDryRunInvoice(null)}
+            invoiceId={dryRunInvoice?._id}
+          />
         </>
       )}
     </>
