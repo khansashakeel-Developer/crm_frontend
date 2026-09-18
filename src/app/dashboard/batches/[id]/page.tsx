@@ -777,7 +777,7 @@ function BatchDetailContent() {
 
                                                 {/* Per-student payment progress */}
                         {(() => {
-                          const total = student.invoice?.totalAmount ?? 0;
+                          const total = student.invoice?.netAmount ?? student.invoice?.totalAmount ?? 0;
                           const paid = student.invoice?.paidAmount ?? 0;
                           const pct = total > 0 ? Math.min(Math.round((paid / total) * 100), 100) : 0;
 
