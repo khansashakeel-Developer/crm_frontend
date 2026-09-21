@@ -91,6 +91,29 @@ const menuSections: MenuSection[] = [
       { label: "Setting", href: "/dashboard/settings", icon: Settings, roles: ["user"] },
     ],
   },
+   {
+    title: "Quick Book",
+    roles: ["super_admin", "admin", "finance_manager"],
+    mode: "crm",
+    items: [
+      {
+        label: "Overall",
+        icon: ClipboardList,
+        roles: ["super_admin", "admin", "finance_manager"],
+        children: [
+          { label: "all", href: "/dashboard/quickbooks" },
+          { label: "Compare", href: "/dashboard/quickbooks/compare" },
+          { label: "Monitor", href: "/dashboard/quickbooks/monitor" },
+        ],
+      },
+      {
+        label: "setting",
+        href: "/dashboard/quickbooks/settings",
+        icon: ShieldCheck,
+        roles: ["super_admin", "admin", "finance_manager"],
+      },
+    ],
+  },
   {
     title: "Enrollments",
     roles: ["super_admin", "admin", "finance_manager", "sales_manager", "sales_rep"],

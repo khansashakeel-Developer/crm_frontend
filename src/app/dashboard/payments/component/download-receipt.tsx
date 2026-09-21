@@ -128,7 +128,7 @@ export default function DownloadReceipt(invoice: any, user: any, installments: a
 
     drawBox(MARGIN + boxW + 4, "Issued By", [
         "ALCO — Finance Dept.",
-        "finance@alco.com",
+        "finance@arslanlarik.com",
     ]);
 
     y += boxH + 8;
