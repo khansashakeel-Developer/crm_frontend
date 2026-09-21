@@ -10,7 +10,7 @@
  * lives in your project (e.g. "@/lib/api", "@/services/api", "../../api").
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getQboStatus, connectQbo, disconnectQbo } from "@/utils/api"; // ← fix this path
 
 type TokenStatus = {
@@ -21,7 +21,7 @@ type TokenStatus = {
   expiresAt?: string | null;
   environment?: string;
 };
- 
+
 export default function QuickBooksSettingsPage() {
   const [status, setStatus] = useState<TokenStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,7 +29,7 @@ export default function QuickBooksSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const [waitingForAuth, setWaitingForAuth] = useState(false);
- 
+
   async function loadStatus() {
     setLoading(true);
     setError(null);
@@ -44,11 +44,22 @@ export default function QuickBooksSettingsPage() {
       setLoading(false);
     }
   }
- 
+
   useEffect(() => {
-    loadStatus();
+    let isMounted = true;
+
+    async function load() {
+      if (isMounted) await loadStatus();
+    }
+    load();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
- 
+
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
+
   async function handleConnect() {
     setActionLoading(true);
     setError(null);
@@ -58,25 +69,19 @@ export default function QuickBooksSettingsPage() {
       if (!json.success || !json.authorizationUri) {
         throw new Error(json.message || "Could not start QuickBooks connection");
       }
-      // Open Intuit's consent screen (and the /callback that follows it) in a
-      // new tab — this page stays open so we can refresh status once the
-      // user comes back, instead of navigating away from it.
       const authWindow = window.open(json.authorizationUri, "_blank", "noopener,noreferrer");
- 
+
       if (!authWindow) {
-        // Popup blocked — fall back to same-tab redirect so the user isn't stuck.
         window.location.href = json.authorizationUri;
         return;
       }
- 
+
       setActionLoading(false);
       setWaitingForAuth(true);
- 
-      // Poll while the popup is open; once it's closed (user finished or
-      // cancelled on Intuit's side), refresh status once.
-      const poll = setInterval(() => {
+
+      pollRef.current = setInterval(() => {
         if (authWindow.closed) {
-          clearInterval(poll);
+          clearInterval(pollRef.current!);
           setWaitingForAuth(false);
           loadStatus();
         }
@@ -86,7 +91,13 @@ export default function QuickBooksSettingsPage() {
       setActionLoading(false);
     }
   }
- 
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
   async function handleDisconnect() {
     setActionLoading(true);
     setError(null);
@@ -102,9 +113,9 @@ export default function QuickBooksSettingsPage() {
       setActionLoading(false);
     }
   }
- 
+
   const isConnected = !!status?.hasAccessToken;
- 
+
   return (
     <div style={{ maxWidth: 560, margin: "0 auto", padding: "48px 20px" }}>
       <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 6 }} className="text-gray-400">
@@ -113,16 +124,16 @@ export default function QuickBooksSettingsPage() {
       <p style={{ color: "#666", fontSize: 14, marginBottom: 28 }}>
         Manage ALCO CRM&apos;s connection to your QuickBooks Online company file.
       </p>
- 
+
       {loading && <p style={{ fontSize: 14, color: "#666" }}>Checking connection status…</p>}
- 
+
       {waitingForAuth && (
         <p style={{ fontSize: 14, color: "#666", marginBottom: 12 }}>
           Complete the QuickBooks sign-in in the tab that just opened. This page will
           update automatically once you&apos;re done.
         </p>
       )}
- 
+
       {error && (
         <div
           style={{
@@ -138,7 +149,7 @@ export default function QuickBooksSettingsPage() {
           {error}
         </div>
       )}
- 
+
       {!loading && status && (
         <>
           <div
@@ -167,7 +178,7 @@ export default function QuickBooksSettingsPage() {
                     : "Not connected"}
               </strong>
             </div>
- 
+
             {status.realmId && (
               <p style={{ fontSize: 13, color: "#666", margin: "4px 0" }}>
                 Company ID: {status.realmId}
@@ -184,7 +195,7 @@ export default function QuickBooksSettingsPage() {
               </p>
             )}
           </div>
- 
+
           {!isConnected || status.isExpired ? (
             <button
               onClick={handleConnect}
@@ -278,4 +289,3 @@ export default function QuickBooksSettingsPage() {
     </div>
   );
 }
- 
