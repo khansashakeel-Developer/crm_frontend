@@ -108,9 +108,9 @@
 // }
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Link2, Copy } from "lucide-react";
+import { Link2, Copy, Download } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getWebinars, getWebinar, createWebinar, updateWebinar, deleteWebinar, adminGetAllAssignRoles, getAllUsersForRole, duplicateWebinar } from "@/utils/api";
@@ -159,6 +159,7 @@ const statusStyles: Record<WebinarStatus, string> = {
 export default function WebinarsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const qrRef = useRef<HTMLDivElement>(null);
 
   // ✅ Ab yahan andar — component ke top pe
   const { user: authUser } = useAppSelector((state) => state.auth);
@@ -236,6 +237,7 @@ export default function WebinarsPage() {
   const [editFieldsError, setEditFieldsError] = useState("");
   const [isLoadingWebinar, setIsLoadingWebinar] = useState(false);
   const [sharingWebinar, setSharingWebinar] = useState<Webinar | null>(null);
+  const isAdmin = authUser?.role === "admin" || authUser?.role === "super_admin";
 
   // ── Fetch webinars ──
   const { data, isLoading, isError } = useQuery({
@@ -379,6 +381,17 @@ export default function WebinarsPage() {
     editWebinar({ ...form, fields: editFields });
   };
 
+  const handleDownloadQR = () => {
+    const canvas = qrRef.current?.querySelector("canvas");
+    if (!canvas) return;
+
+    const url = canvas.toDataURL("image/png");
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `webinar-qr-${sharingWebinar?._id}.png`;
+    link.click();
+  };
+
   const filterFields: FilterField[] = [
     { type: "input", name: "search", placeholder: "Search by title..." },
     {
@@ -437,31 +450,35 @@ export default function WebinarsPage() {
       label: "Share Link",
       onClick: (w: Webinar) => setSharingWebinar(w),
     },
-    {
-      icon: <Copy size={15} />,           
-      label: "Duplicate",
-      onClick: (w: Webinar) => copyWebinar(w._id),
-    },
-    {
-      icon: <Pencil size={15} />,
-      label: "Edit",
-      onClick: (w: Webinar) => openEditModal(w),
-    },
-    {
-      icon: <Trash2 size={15} />,
-      label: "Delete",
-      className: "hover:bg-red-50 hover:text-red-500",
-      onClick: (w: Webinar) => setDeletingWebinar(w),
-    },
+    ...(isAdmin
+      ? [
+        {
+          icon: <Copy size={15} />,
+          label: "Duplicate",
+          onClick: (w: Webinar) => copyWebinar(w._id),
+        },
+        {
+          icon: <Pencil size={15} />,
+          label: "Edit",
+          onClick: (w: Webinar) => openEditModal(w),
+        },
+        {
+          icon: <Trash2 size={15} />,
+          label: "Delete",
+          className: "hover:bg-red-50 hover:text-red-500",
+          onClick: (w: Webinar) => setDeletingWebinar(w),
+        },
+      ]
+      : []),
   ];
 
   return (
-    <ProtectedRoute allowedRoles={["admin", "super_admin",]}>
+    <ProtectedRoute allowedRoles={["admin", "super_admin", "sales_manager"]}>
       <PageHeader
         title="Webinars"
         subtitle="Manage all your webinars and registrations"
         titleIcon={<Video size={22} className="text-indigo-500" />}
-        onAdd={openCreateModal}
+        onAdd={isAdmin ? openCreateModal : undefined}
         filters={filters}
         setFilters={setFilters}
         filterFields={filterFields}
@@ -549,7 +566,18 @@ export default function WebinarsPage() {
           title="Share Webinar"
           description={
             <div className="flex flex-col items-center gap-4 py-2 w-full">
-              <QRCodeCanvas value={getPublicLink(sharingWebinar._id)} size={180} />
+              <div ref={qrRef} className="relative group">
+                <QRCodeCanvas value={getPublicLink(sharingWebinar._id)} size={180} />
+                <button
+                  onClick={handleDownloadQR}
+                  className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Download size={22} className="text-white" />
+                </button>
+
+                
+              </div>
+
               <div className="flex items-center gap-2 border rounded-md px-3 py-2 w-full">
                 <input
                   readOnly

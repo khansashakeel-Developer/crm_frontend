@@ -89,6 +89,7 @@ const menuSections: MenuSection[] = [
       { label: "Payments", href: "/dashboard/payments", icon: Receipt, roles: ["user"] },
       { label: "Contract", href: "/dashboard/contract", icon: FileText, roles: ["user"] },
       { label: "Setting", href: "/dashboard/settings", icon: Settings, roles: ["user"] },
+      {label: "webinar", href: "/dashboard/webinars", icon: Video, roles: ["sales_manager"],}
     ],
   },
    {
