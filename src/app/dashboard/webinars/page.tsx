@@ -326,7 +326,12 @@ export default function WebinarsPage() {
       return;
     }
 
-    addWebinar({ ...form, fields: newFields });
+    const payload = {
+      ...form,
+      date: form.date ? `${form.date}:00.000Z` : form.date,
+    };
+
+    addWebinar({ ...payload, fields: newFields });
   };
 
   // ── Edit modal handlers ──
@@ -343,10 +348,10 @@ export default function WebinarsPage() {
       setEditInitialValues({
         title: w.title || "",
         description: w.description || "",
-        // convert ISO date to what datetime-local input expects
-        date: w.date ? new Date(w.date).toISOString().slice(0, 16) : "",
+        date: w.date ? toDatetimeLocalUTC(w.date) : "",
         status: w.status || "draft",
       });
+
       setEditFields(w.fields || []);
       setIsEditOpen(true);
     } catch (err) {
@@ -378,7 +383,12 @@ export default function WebinarsPage() {
       return;
     }
 
-    editWebinar({ ...form, fields: editFields });
+    const payload = {
+      ...form,
+      date: form.date ? `${form.date}:00.000Z` : form.date,
+    };
+
+    editWebinar({ ...payload, fields: editFields });
   };
 
   const handleDownloadQR = () => {
@@ -406,6 +416,23 @@ export default function WebinarsPage() {
     },
   ];
 
+  const formatWebinarDateTime = (dateString: string) =>
+    new Date(dateString).toLocaleString("en-US", {
+      timeZone: "UTC",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+  const toDatetimeLocalUTC = (isoString: string) => {
+    const d = new Date(isoString);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  };
+
   const columns = [
     {
       key: "title",
@@ -415,7 +442,7 @@ export default function WebinarsPage() {
     {
       key: "date",
       label: "Date",
-      render: (w: Webinar) => new Date(w.date).toLocaleDateString(),
+      render: (w: Webinar) => formatWebinarDateTime(w.date),
     },
     {
       key: "status",
