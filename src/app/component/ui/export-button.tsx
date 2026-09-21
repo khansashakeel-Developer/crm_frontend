@@ -1,5 +1,6 @@
 // components/ui/ExportButton.tsx
 "use client";
+
 import { useState, useRef, useEffect } from "react";
 import { Download, Loader2, FileSpreadsheet, FileText, ChevronDown } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -7,15 +8,15 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 interface ExportButtonProps {
-  filename: string;                // e.g. "invoices", "expenses"
+  filename: string; // e.g. "invoices", "expenses"
   fetchData: () => Promise<any[]>; // function jo data fetch kare
   columns: {
-    header: string;                // Column heading
-    key: string;                   // dot notation supported e.g. "user.name"
+    header: string; // Column heading
+    key: string; // dot notation supported e.g. "user.name"
     format?: (val: any) => string; // optional formatter
   }[];
   label?: string;
-  title?: string;                  // PDF ka heading (default: filename)
+  title?: string; // PDF ka heading (default: filename)
 }
 
 // Dot notation support: getNestedValue(obj, "user.name")
@@ -50,10 +51,17 @@ export default function ExportButton({
       const row: Record<string, any> = {};
       columns.forEach((col) => {
         const raw = getNestedValue(item, col.key);
-        row[col.header] = col.format ? col.format(raw) : (raw ?? "—");
+        row[col.header] = col.format ? col.format(raw) : raw ?? "—";
       });
       return row;
     });
+
+  function safeSheetName(name: string): string {
+    // Excel forbids these characters in sheet names: \ / ? * [ ]
+    const cleaned = name.replace(/[\\/?*[\]]/g, "");
+    // Excel sheet names cannot exceed 31 characters
+    return cleaned.length > 31 ? cleaned.slice(0, 31) : cleaned || "Sheet1";
+  }
 
   const handleExcelExport = async () => {
     try {
@@ -74,13 +82,13 @@ export default function ExportButton({
       }));
 
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, filename);
+      XLSX.utils.book_append_sheet(wb, ws, safeSheetName(filename));
 
       const date = new Date().toISOString().split("T")[0];
       XLSX.writeFile(wb, `${filename}-${date}.xlsx`);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Export error:", err);
-      alert("Export failed");
+      alert(`Export failed: ${err?.message || err}`);
     } finally {
       setLoading(null);
     }
@@ -103,8 +111,6 @@ export default function ExportButton({
         unit: "pt",
       });
 
-      const date = new Date().toISOString().split("T")[0];
-
       // Heading
       doc.setFontSize(14);
       doc.text(title || filename, 40, 40);
@@ -122,6 +128,7 @@ export default function ExportButton({
         margin: { left: 40, right: 40 },
       });
 
+      const date = new Date().toISOString().split("T")[0];
       doc.save(`${filename}-${date}.pdf`);
     } catch (err) {
       console.error("Export error:", err);
@@ -147,7 +154,10 @@ export default function ExportButton({
           <Download size={14} />
         )}
         {label}
-        <ChevronDown size={14} className={`transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        <ChevronDown
+          size={14}
+          className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
       </button>
 
       {isOpen && (
