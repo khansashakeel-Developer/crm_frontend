@@ -89,28 +89,28 @@ const menuSections: MenuSection[] = [
       { label: "Payments", href: "/dashboard/payments", icon: Receipt, roles: ["user"] },
       { label: "Contract", href: "/dashboard/contract", icon: FileText, roles: ["user"] },
       { label: "Setting", href: "/dashboard/settings", icon: Settings, roles: ["user"] },
-      {label: "webinar", href: "/dashboard/webinars", icon: Video, roles: ["sales_manager"],}
+      { label: "webinar", href: "/dashboard/webinars", icon: Video, roles: ["sales_manager"], }
     ],
   },
-   {
+  {
     title: "Quick Book",
     roles: ["super_admin", "admin", "finance_manager"],
     mode: "crm",
     items: [
       {
-        label: "Overall",
-        icon: ClipboardList,
+        label: "Overview",
+        icon: LayoutDashboard,
         roles: ["super_admin", "admin", "finance_manager"],
         children: [
-          { label: "all", href: "/dashboard/quickbooks" },
+          { label: "Data", href: "/dashboard/quickbooks" },
           { label: "Compare", href: "/dashboard/quickbooks/compare" },
           { label: "Monitor", href: "/dashboard/quickbooks/monitor" },
         ],
       },
       {
-        label: "setting",
+        label: "Settings",
         href: "/dashboard/quickbooks/settings",
-        icon: ShieldCheck,
+        icon: Settings,
         roles: ["super_admin", "admin", "finance_manager"],
       },
     ],

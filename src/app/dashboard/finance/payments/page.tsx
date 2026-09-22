@@ -11,7 +11,7 @@ import Modal from "@/app/component/ui/model/modal";
 import Popup from "@/app/component/ui/popup/popup";
 import { ModalField } from "@/types/ui";
 import toast from "react-hot-toast";
-import { Receipt, CheckCircle, XCircle, Pencil, UploadCloud, Loader2 } from "lucide-react";
+import { Receipt, CheckCircle, XCircle, Pencil, UploadCloud, Loader2, RefreshCw, PlayCircle, CheckCircle as CheckIcon } from "lucide-react";
 import ExportButton from "@/app/component/ui/export-button";
 import DateRangeFilter from "@/app/component/dashboard/date-range-filter";
 import EmailAdminDropdown from "@/app/component/ui/email-admin-dropdown"; // 👈 naya import
@@ -72,9 +72,48 @@ const editPaymentFields: ModalField[] = [
   { name: "notes", label: "Notes", type: "textarea" },
 ];
 
+function getQboActions(p: any, opts: { onSync: (id: string) => void; syncingId: string | null }) {
+  const status = p.qboSyncStatus || "pending";
+  const { onSync, syncingId } = opts;
+  const isSyncing = syncingId === p._id;
+
+  if (p.status !== "approved") return []; // only approved payments can sync
+
+  if (status === "synced") {
+    return [{
+      icon: isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />,
+      label: isSyncing ? "Resyncing..." : "Resync to QBO",
+      onClick: () => onSync(p._id),
+      className: "hover:bg-blue-50 hover:text-blue-600",
+      disabled: () => isSyncing,
+    }];
+  }
+
+  if (status === "failed") {
+    return [{
+      icon: isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />,
+      label: isSyncing ? "Retrying..." : "Retry Sync",
+      onClick: () => onSync(p._id),
+      className: "hover:bg-rose-50 hover:text-rose-600",
+      disabled: () => isSyncing,
+    }];
+  }
+
+  // pending / skipped → never synced
+  return [{
+    icon: isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <UploadCloud size={14} />,
+    label: isSyncing ? "Syncing..." : "Sync to QBO",
+    onClick: () => onSync(p._id),
+    className: "hover:bg-green-50 hover:text-green-600",
+    disabled: () => isSyncing,
+  }];
+}
+
+
+
 export default function PaymentsPage() {
   const queryClient = useQueryClient();
-  const [filters, setFilters] = useState({ status: "", method: "", search: "", page: "1", limit: "10", dateFrom: "", dateTo: "" });
+  const [filters, setFilters] = useState({ status: "", method: "", search: "", page: "1", limit: "10", dateFrom: "", dateTo: "", QboLense: false });
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<any>(null);
   const [approvingPayment, setApprovingPayment] = useState<any>(null);
@@ -163,6 +202,16 @@ export default function PaymentsPage() {
     }
   };
 
+  const qboSlot = (p: any) => {
+    const acts = getQboActions(p, { onSync: handleSyncNow, syncingId: syncingNowId });
+    return acts[0];
+  };
+
+  const isSyncHidden = (p: any) => {
+    if (!filters.QboLense) return true;
+    return getQboActions(p, { onSync: () => { }, syncingId: syncingNowId }).length === 0;
+  };
+
   return (
     <>
       <PageHeader
@@ -224,6 +273,16 @@ export default function PaymentsPage() {
                 </span>
               </div>
             </div>
+            <button
+              onClick={() => setFilters((f) => ({ ...f, QboLense: !f.QboLense }))}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${filters.QboLense
+                ? "bg-green-100 text-green-700 border-green-300 hover:bg-green-200"
+                : "border-gray-200 text-gray-600 hover:bg-yellow-50 hover:text-yellow-700 hover:border-yellow-200"
+                }`}
+            >
+              {filters.QboLense && <CheckIcon size={13} />}
+              QBO Lense
+            </button>
           </div>
         }
       />
@@ -244,9 +303,17 @@ export default function PaymentsPage() {
           {
             key: "invoiceNumber", label: "Invoice #",
             render: (p) => (
-              <span className="text-gray-600 text-sm font-mono font-semibold">
-                {p.invoice?.invoiceNumber || "—"}
-              </span>
+              <>
+                <span className="text-gray-600 text-sm font-mono font-semibold">
+                  {p.invoice?.invoiceNumber || "—"}
+                </span>
+                {filters.QboLense && (
+                  <>
+                    <br />
+                    <p className="text-green-500 text-xs">{p._id}</p>
+                  </>
+                )}
+              </>
             ),
           },
           {
@@ -287,18 +354,28 @@ export default function PaymentsPage() {
             icon: <CheckCircle size={14} />, label: "Approve",
             onClick: (p) => setApprovingPayment(p),
             className: "hover:bg-green-50 hover:text-green-600",
-            hidden: (p) => p.status !== "pending",
+            hidden: (p) => p.status !== "pending" || filters.QboLense,
           },
           {
             icon: <XCircle size={14} />, label: "Reject",
             onClick: (p) => setRejectingPayment(p),
             className: "hover:bg-rose-50 hover:text-rose-500",
-            hidden: (p) => p.status !== "pending",
+            hidden: (p) => p.status !== "pending" || filters.QboLense,
           },
           {
             icon: <Pencil size={14} />, label: "Edit",
             onClick: (p) => setEditingPayment(p),
             className: "hover:bg-yellow-50 hover:text-yellow-600",
+            hidden: () => filters.QboLense,
+          },
+          // ✅ QBO sync/resync slot — sirf QboLense on hone par visible
+          {
+            icon: (p: any) => qboSlot(p)?.icon ?? null,
+            label: (p: any) => qboSlot(p)?.label ?? "",
+            onClick: (p: any) => { qboSlot(p)?.onClick(); },
+            className: (p: any) => qboSlot(p)?.className ?? "",
+            hidden: isSyncHidden,
+            disabled: (p: any) => syncingNowId === p._id,
           },
           // {
           //   icon: syncingNowId ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />,
