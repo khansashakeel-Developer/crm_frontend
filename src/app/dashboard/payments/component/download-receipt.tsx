@@ -48,7 +48,7 @@ export default function DownloadReceipt(invoice: any, user: any, installments: a
     doc.setFontSize(8);
     doc.setTextColor(180, 190, 205);
     doc.text("D86/1, Block 7, Gulshan-e-Iqbal, Karachi, Sindh PK", MARGIN, 19);
-    doc.text("connect@arslanlarik.com  |  1+8886814808", MARGIN, 23.5);
+    doc.text("connect@arslanlarik.com  |  +18886814808", MARGIN, 23.5);
     doc.text("https://arslanlarik.com/  |  NTN: 2826497-5", MARGIN, 28);
 
     doc.setFontSize(8);
@@ -262,11 +262,9 @@ export default function DownloadReceipt(invoice: any, user: any, installments: a
     doc.setFontSize(7.5);
     doc.setTextColor(...TEXT_MUTED);
     const bankLines = [
-        "Cash | Bank Transfer | Cheque",
+        "Bank Transfer | Cheque",
         "HBL Bank",
         "Account Title: ARSLAN LARIK & Company",
-        "Account Number: 19107901888203",
-        "IBAN: PK94HABB0019107901888203",
         "Branch: Korangi Road, DHA Phase II",
     ];
     const footerStartY = y - 5;
