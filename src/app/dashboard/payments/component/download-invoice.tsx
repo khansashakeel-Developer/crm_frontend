@@ -272,7 +272,12 @@ export default function DownloadInvoice(invoice: any, user: any) {
     "Bank details will be provided upon request.",
   ];
   const notesLineH = 4.2;
-  const notesH = 10 + notes.length * notesLineH;
+
+  // Pre-wrap all notes first, so box height accounts for notes that wrap to 2+ lines
+  const noteWraps = notes.map((n) => doc.splitTextToSize(`•  ${n}`, CONTENT_W - 12));
+  const totalNoteLines = noteWraps.reduce((sum, w) => sum + w.length, 0);
+  const notesH = 10 + totalNoteLines * notesLineH;
+
   if (y + notesH > 280) { doc.addPage(); y = 16; }
 
   doc.setFillColor(...PANEL);
@@ -285,9 +290,9 @@ export default function DownloadInvoice(invoice: any, user: any) {
   doc.setFontSize(8.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...TEXT_GRAY);
+
   let ny = y + 11;
-  notes.forEach((n) => {
-    const wrapped = doc.splitTextToSize(`•  ${n}`, CONTENT_W - 12);
+  noteWraps.forEach((wrapped) => {
     doc.text(wrapped, MARGIN + 7, ny);
     ny += wrapped.length * notesLineH;
   });
