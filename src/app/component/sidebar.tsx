@@ -229,7 +229,7 @@ const menuSections: MenuSection[] = [
         label: "Webinars",
         href: "/dashboard/webinars",
         icon: Video,
-        roles: ["super_admin", "admin", "seo"],
+        roles: ["super_admin", "admin"],
       },
     ],
   },
