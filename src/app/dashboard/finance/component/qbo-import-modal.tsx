@@ -25,7 +25,10 @@ export function QboImportModal({ open, onClose, initialQboInvoiceId }: Props) {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedEnrollmentIds, setSelectedEnrollmentIds] = useState<Set<string>>(new Set());
   const [enrollmentSearch, setEnrollmentSearch] = useState("");
+  const [paymentLabels, setPaymentLabels] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
+
+  const defaultLabel = (idx: number) => (idx === 0 ? "Advance Payment" : `Installment ${idx}`);
 
   const listQ = useQuery({
     queryKey: ["qbo-import-list", search],
@@ -52,7 +55,7 @@ export function QboImportModal({ open, onClose, initialQboInvoiceId }: Props) {
   });
 
   const { mutate: doImport, isPending: importing } = useMutation({
-    mutationFn: () => importQboInvoice(selectedQboId!, selectedUserId!, Array.from(selectedEnrollmentIds)),
+    mutationFn: () => importQboInvoice(selectedQboId!, selectedUserId!, Array.from(selectedEnrollmentIds), paymentLabels),
     onSuccess: (res) => {
       toast.success(res.data.message || "Imported ✅");
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
@@ -70,8 +73,9 @@ export function QboImportModal({ open, onClose, initialQboInvoiceId }: Props) {
     setSelectedEnrollmentIds(new Set());
     setEnrollmentSearch("");
     setUserSearch("");
+    setPaymentLabels({});
     onClose();
-  };
+  }
 
   const toggleEnrollment = (id: string) => {
     setSelectedEnrollmentIds((prev) => {
@@ -92,12 +96,16 @@ export function QboImportModal({ open, onClose, initialQboInvoiceId }: Props) {
   const suggestedEnrollmentIds = detailQ.data?.suggestedEnrollments?.map((e: any) => e.id) || [];
   if (
     detailQ.isSuccess &&
-    suggestedEnrollmentIds.length &&
-    selectedEnrollmentIds.size === 0 &&
-    selectedUserId
+    detailQ.data.payments.length > 0 &&
+    Object.keys(paymentLabels).length === 0
   ) {
-    setTimeout(() => setSelectedEnrollmentIds(new Set(suggestedEnrollmentIds)), 0);
+    const initial: Record<string, string> = {};
+    detailQ.data.payments.forEach((p: any, idx: number) => {
+      initial[p.qboPaymentId] = defaultLabel(idx);
+    });
+    setTimeout(() => setPaymentLabels(initial), 0);
   }
+
 
   if (!open) return null;
 
@@ -196,10 +204,19 @@ export function QboImportModal({ open, onClose, initialQboInvoiceId }: Props) {
                       <Receipt size={12} /> {detailQ.data.payments.length} payment(s) will also be imported
                     </p>
                     <div className="space-y-1.5">
-                      {detailQ.data.payments.map((p: any) => (
-                        <div key={p.qboPaymentId} className="flex justify-between text-xs bg-green-50 rounded-lg px-3 py-2">
-                          <span className="text-gray-600">{p.txnDate ? new Date(p.txnDate).toLocaleDateString("en-PK") : "—"}</span>
-                          <span className="font-medium text-green-700">{fmt(p.amount)}</span>
+                      {detailQ.data.payments.map((p: any, idx: number) => (
+                        <div key={p.qboPaymentId} className="flex items-center gap-2 bg-green-50 rounded-lg px-3 py-2">
+                          <input
+                            value={paymentLabels[p.qboPaymentId] ?? defaultLabel(idx)}
+                            onChange={(e) =>
+                              setPaymentLabels((prev) => ({ ...prev, [p.qboPaymentId]: e.target.value }))
+                            }
+                            className="flex-1 bg-transparent text-xs text-gray-700 font-medium focus:outline-none focus:ring-1 focus:ring-yellow-300 rounded px-1"
+                          />
+                          <span className="text-xs text-gray-500 shrink-0">
+                            {p.txnDate ? new Date(p.txnDate).toLocaleDateString("en-PK") : "—"}
+                          </span>
+                          <span className="text-xs font-medium text-green-700 shrink-0">{fmt(p.amount)}</span>
                         </div>
                       ))}
                     </div>
@@ -277,15 +294,13 @@ export function QboImportModal({ open, onClose, initialQboInvoiceId }: Props) {
                               <button
                                 key={e._id}
                                 onClick={() => toggleEnrollment(e._id)}
-                                className={`w-full flex items-center justify-between px-3 py-2.5 text-left text-sm transition-colors ${
-                                  checked ? "bg-yellow-50" : "hover:bg-gray-50"
-                                }`}
+                                className={`w-full flex items-center justify-between px-3 py-2.5 text-left text-sm transition-colors ${checked ? "bg-yellow-50" : "hover:bg-gray-50"
+                                  }`}
                               >
                                 <span className="flex items-center gap-2">
                                   <span
-                                    className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                                      checked ? "bg-yellow-400 border-yellow-400" : "border-gray-300"
-                                    }`}
+                                    className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${checked ? "bg-yellow-400 border-yellow-400" : "border-gray-300"
+                                      }`}
                                   >
                                     {checked && <CheckCircle2 size={11} className="text-white" />}
                                   </span>
