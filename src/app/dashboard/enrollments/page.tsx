@@ -15,6 +15,8 @@ import {
   createEnrollmentDirect,
   adminGetAllUsers,
   createEnrollmentDirectBundle,
+  compareQboInvoices,
+  compareQboPayments
 } from "@/utils/api";
 import PageHeader, { FilterField } from "@/app/component/dashboard/page-header";
 import DynamicTable from "@/app/component/dashboard/dynamic-table";
@@ -31,6 +33,7 @@ import {
   PlayCircle,
   ChevronLeft,
   ChevronRight,
+  CheckCircle as CheckIcon, XCircle as XIcon
 } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import ProtectedRoute from "@/app/component/protected-route";
@@ -186,14 +189,15 @@ function EnrollmentsContent() {
   const isFinanceManager = authUser?.role === "finance_manager";
   const canAdd = isAdmin || isSalesManager || isFinanceManager;
   const canAction = isAdmin || isSalesManager || isFinanceManager;
-
-  const [filters, setFilters] = useState<Record<string, string>>({
+  const [filters, setFilters] = useState<Record<string, string | boolean>>({
     status: "",
     accessStatus: "",
     search: "",
     page: "1",
     limit: "10",
+    QboLense: false,
   });
+
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingEnrollment, setEditingEnrollment] = useState<any>(null);
   const [deletingEnrollment, setDeletingEnrollment] = useState<any>(null);
@@ -304,6 +308,30 @@ function EnrollmentsContent() {
   const { data: upcomingBatchesRes } = useQuery({
     queryKey: ["batches-upcoming"],
     queryFn: () => adminGetBatches({ status: "upcoming" }).then((r) => r.data),
+  });
+
+  const { data: qboInvoicesData } = useQuery({
+    queryKey: ["qbo-compare-invoices"],
+    queryFn: () => compareQboInvoices().then((r) => r.data),
+    enabled: !!filters.QboLense,
+  });
+
+  const { data: qboPaymentsData } = useQuery({
+    queryKey: ["qbo-compare-payments"],
+    queryFn: () => compareQboPayments().then((r) => r.data),
+    enabled: !!filters.QboLense,
+  });
+
+  // ── lookup maps by invoiceNumber ──
+  const invoiceByNumber = new Map(
+    (qboInvoicesData?.data ?? []).map((r: any) => [String(r.invoiceNumber), r])
+  );
+
+  const paymentsByInvoiceNumber = new Map<string, any[]>();
+  (qboPaymentsData?.data ?? []).forEach((r: any) => {
+    const key = String(r.invoiceNumber);
+    if (!paymentsByInvoiceNumber.has(key)) paymentsByInvoiceNumber.set(key, []);
+    paymentsByInvoiceNumber.get(key)!.push(r);
   });
 
   const activeBatches = [
@@ -657,6 +685,16 @@ function EnrollmentsContent() {
                 { header: "Enrolled At", key: "enrolledAt", format: (v) => v ? new Date(v).toLocaleDateString("en-PK") : "—" }, // ← key fix
               ]}
             />
+            <button
+              onClick={() => setFilters((f) => ({ ...f, QboLense: !f.QboLense }))}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${filters.QboLense
+                ? "bg-green-100 text-green-700 border-green-300 hover:bg-green-200"
+                : "border-gray-200 text-gray-600 hover:bg-yellow-50 hover:text-yellow-700 hover:border-yellow-200"
+                }`}
+            >
+              {filters.QboLense && <CheckIcon size={13} />}
+              QBO Lense
+            </button>
           </div>
         }
       />
@@ -773,6 +811,7 @@ function EnrollmentsContent() {
               <div>
                 <p className="font-medium text-gray-800">{row.user?.name || "—"}</p>
                 <p className="text-xs text-gray-400">{row.user?.email}</p>
+                {filters.QboLense && (<p className="text-xs text-green-500">{row.user?._id}</p>)}
               </div>
             ),
           },
@@ -817,6 +856,9 @@ function EnrollmentsContent() {
                     <p className="text-[11px] text-gray-400 mt-0.5">
                       {e.batch?.name || "No Batch"}
                     </p>
+                    {/* <p className="text-[11px] text-gray-400 mt-0.5">
+                      {e._id}
+                    </p> */}
                     {e.assigned_to ? (
                       <div className="flex gap-2 ">
                         <p className="py-1 text-[10px] text-gray-500">Assigned To</p>
@@ -887,6 +929,56 @@ function EnrollmentsContent() {
               </span>
             ),
           },
+          ...(filters.QboLense
+            ? [{
+              key: "qboStatus",
+              label: "QBO Invoice / Payments",
+              minWidth: "260px",
+              render: (row: any) => (
+                <div className="flex flex-col gap-2">
+                  {row.enrollments.map((e: any) => {
+                    const invNum = e.invoice?.invoiceNumber ? String(e.invoice.invoiceNumber) : null;
+                    if (!invNum) {
+                      return (
+                        <div key={e._id} className="text-[11px] text-gray-300">
+                          No invoice
+                        </div>
+                      );
+                    }
+                    const invRow = invoiceByNumber.get(invNum);
+                    const payRows = paymentsByInvoiceNumber.get(invNum) || [];
+                    const qboPaid = payRows
+                      .filter((p: any) => p.qbo?.exists)
+                      .reduce((s: number, p: any) => s + Number(p.qbo?.totalAmt || 0), 0);
+                    const crmPaid = payRows
+                      .filter((p: any) => p.crm?.exists)
+                      .reduce((s: number, p: any) => s + Number(p.crm?.amount || 0), 0);
+
+                    return (
+                      <div key={e._id} className="border border-gray-100 rounded-md p-1.5">
+                        <div className="flex items-center gap-1 text-[11px]">
+                          {invRow?.qbo?.exists ? (
+                            <CheckIcon size={12} className="text-green-600" />
+                          ) : (
+                            <XIcon size={12} className="text-rose-500" />
+                          )}
+                          <span className="text-gray-500">
+                            Inv #{invNum} {invRow?.qbo?.exists ? "in QBO" : "not in QBO"}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">
+                          CRM Rs {crmPaid.toLocaleString()} vs QBO Rs {qboPaid.toLocaleString()}
+                          {crmPaid !== qboPaid && (
+                            <span className="text-rose-500 font-medium ml-1">⚠ mismatch</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ),
+            }]
+            : []),
         ]}
 
         // actions={canAction ? [

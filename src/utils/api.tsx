@@ -274,7 +274,7 @@ export const bounceCheque = (
   chequeId: string,
   data: { depositDate: string; bounceDate: string; reason?: string }
 ) => API.patch(`/api/v1/finance/invoices/${invoiceId}/cheques/${chequeId}/bounce`, data);
-  
+
 export const correctPaidInstallment = (
   invoiceId: string,
   installmentId: string,
@@ -431,8 +431,13 @@ export const unlinkQboRecord = (type: string, id: string) =>
 
 export const getQboImportList = (search: string) => API.get("/api/qbo/list", { params: { search } });
 export const getQboImportDetail = (qboInvoiceId: string) => API.get(`/api/qbo/detail/${qboInvoiceId}`);
-export const importQboInvoice = (qboInvoiceId: string, userId: string, enrollmentIds: string[]) =>
-  API.post("/api/qbo/invoice", { qboInvoiceId, userId, enrollmentIds });
+export const importQboInvoice = (
+  qboInvoiceId: string,
+  userId: string,
+  enrollmentIds: string[],
+  labelOverrides?: Record<string, string>
+) =>
+  API.post("/api/qbo/invoice", { qboInvoiceId, userId, enrollmentIds, labelOverrides });
 export const searchCrmUsers = (q: string) => API.get("/api/leads/enrollments/search", { params: { q } }); // adjust to your actual user-search endpoint
 export const getUserEnrollments = (userId: string) =>
   API.get(`/api/qbo/enrollments/${userId}`);
