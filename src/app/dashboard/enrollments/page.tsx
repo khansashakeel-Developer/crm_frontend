@@ -323,7 +323,7 @@ function EnrollmentsContent() {
   });
 
   // ── lookup maps by invoiceNumber ──
-  const invoiceByNumber = new Map(
+  const invoiceByNumber = new Map<string, any>(
     (qboInvoicesData?.data ?? []).map((r: any) => [String(r.invoiceNumber), r])
   );
 
