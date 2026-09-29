@@ -30,20 +30,20 @@ export default function QuickBooksSettingsPage() {
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const [waitingForAuth, setWaitingForAuth] = useState(false);
 
-  async function loadStatus() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await getQboStatus();
-      const json = res.data; // axios-style response — adjust if your API wrapper differs
-      if (!json.success) throw new Error(json.message || "Failed to load status");
-      setStatus(json.data);
-    } catch (err: any) {
-      setError(err?.response?.data?.message || err.message || "Could not load QuickBooks connection status");
-    } finally {
-      setLoading(false);
-    }
-  }
+  // async function loadStatus() {
+  //   setLoading(true);
+  //   setError(null);
+  //   try {
+  //     const res = await getQboStatus();
+  //     const json = res.data; // axios-style response — adjust if your API wrapper differs
+  //     if (!json.success) throw new Error(json.message || "Failed to load status");
+  //     setStatus(json.data);
+  //   } catch (err: any) {
+  //     setError(err?.response?.data?.message || err.message || "Could not load QuickBooks connection status");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }
 
   useEffect(() => {
     let isMounted = true;
@@ -58,46 +58,90 @@ export default function QuickBooksSettingsPage() {
     };
   }, []);
 
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // silent = true → spinner/error flicker nahi hoga (polling ke liye)
+  async function loadStatus(silent = false): Promise<TokenStatus | null> {
+    if (!silent) setLoading(true);
+    if (!silent) setError(null);
+    try {
+      const res = await getQboStatus();
+      const json = res.data;
+      if (!json.success) throw new Error(json.message || "Failed to load status");
+      setStatus(json.data);
+      return json.data as TokenStatus;
+    } catch (err: any) {
+      if (!silent) setError(err?.response?.data?.message || err.message || "Could not load QuickBooks connection status");
+      return null;
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }
+
+  function stopPolling() {
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    pollRef.current = null;
+    timeoutRef.current = null;
+    setWaitingForAuth(false);
+  }
 
   async function handleConnect() {
     setActionLoading(true);
     setError(null);
+
+    // ✅ click ke foran baad tab kholo (await se pehle) taake popup blocker na roke
+    // ✅ noopener/noreferrer NAHI lagana, warna window.open null return karta hai
+    const authWindow = window.open("", "_blank");
+    if (!authWindow) {
+      setError("Popup blocked — please allow popups for this site and try again");
+      setActionLoading(false);
+      return;
+    }
+
     try {
       const res = await connectQbo();
       const json = res.data;
       if (!json.success || !json.authorizationUri) {
         throw new Error(json.message || "Could not start QuickBooks connection");
       }
-      const authWindow = window.open(json.authorizationUri, "_blank", "noopener,noreferrer");
 
-      if (!authWindow) {
-        window.location.href = json.authorizationUri;
-        return;
-      }
+      authWindow.location.href = json.authorizationUri; // blank tab ab auth page pe jayega
 
       setActionLoading(false);
       setWaitingForAuth(true);
 
-      pollRef.current = setInterval(() => {
-        if (authWindow.closed) {
-          clearInterval(pollRef.current!);
-          setWaitingForAuth(false);
-          loadStatus();
+      // ✅ har 2 sec status check — token milte hi UI khud update
+      pollRef.current = setInterval(async () => {
+        const s = await loadStatus(true);
+        const connectedNow = !!s?.hasAccessToken && !s?.isExpired;
+
+        if (connectedNow) {
+          stopPolling();
+          try { authWindow.close(); } catch { }
+          return;
         }
-      }, 1000);
+        // user ne tab khud band kar diya → polling band (upar status already refresh ho chuka)
+        if (authWindow.closed) stopPolling();
+      }, 2000);
+
+      // safety: 5 min baad polling band
+      timeoutRef.current = setTimeout(stopPolling, 5 * 60 * 1000);
     } catch (err: any) {
+      authWindow.close();
       setError(err?.response?.data?.message || err.message || "Something went wrong starting the connection");
       setActionLoading(false);
     }
   }
 
+  // unmount pe cleanup
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
-
   async function handleDisconnect() {
     setActionLoading(true);
     setError(null);
@@ -199,7 +243,7 @@ export default function QuickBooksSettingsPage() {
           {!isConnected || status.isExpired ? (
             <button
               onClick={handleConnect}
-              disabled={actionLoading}
+              disabled={actionLoading || waitingForAuth}
               style={{
                 background: "#2CA01C",
                 color: "#fff",
@@ -208,11 +252,15 @@ export default function QuickBooksSettingsPage() {
                 padding: "10px 20px",
                 fontSize: 14,
                 fontWeight: 600,
-                cursor: actionLoading ? "not-allowed" : "pointer",
-                opacity: actionLoading ? 0.6 : 1,
+                cursor: actionLoading || waitingForAuth ? "not-allowed" : "pointer",
+                opacity: actionLoading || waitingForAuth ? 0.6 : 1,
               }}
             >
-              {actionLoading ? "Redirecting…" : "Connect to QuickBooks"}
+              {actionLoading
+                ? "Redirecting…"
+                : waitingForAuth
+                  ? "Waiting for authorization…"
+                  : "Connect to QuickBooks"}
             </button>
           ) : !confirmingDisconnect ? (
             <button

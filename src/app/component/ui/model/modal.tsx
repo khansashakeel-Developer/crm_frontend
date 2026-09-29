@@ -73,9 +73,10 @@ export default function Modal({
   //     return true; // add mode → show all fields
   //   });
 
-  const activeFields = tabs
+  const activeFields = (tabs
     ? (currentTab?.fields || [])
-    : fields;
+    : fields
+  ).filter((field) => !field.visible || field.visible(form));
 
   // const handleSubmit = () => {
   //   if (tabs && currentTab?.onSubmit) {

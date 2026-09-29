@@ -431,13 +431,21 @@ export const unlinkQboRecord = (type: string, id: string) =>
 
 export const getQboImportList = (search: string) => API.get("/api/qbo/list", { params: { search } });
 export const getQboImportDetail = (qboInvoiceId: string) => API.get(`/api/qbo/detail/${qboInvoiceId}`);
+type PaymentCfg = {
+  type: "advance" | "installment" | "certificate" | "manual";
+  programId?: string;
+  label?: string;
+};
+
+type PaymentConfig = { [qboPaymentId: string]: PaymentCfg };
+
 export const importQboInvoice = (
   qboInvoiceId: string,
   userId: string,
   enrollmentIds: string[],
-  labelOverrides?: Record<string, string>
+  paymentConfig?: PaymentConfig
 ) =>
-  API.post("/api/qbo/invoice", { qboInvoiceId, userId, enrollmentIds, labelOverrides });
+  API.post("/api/qbo/invoice", { qboInvoiceId, userId, enrollmentIds, paymentConfig });
 export const searchCrmUsers = (q: string) => API.get("/api/leads/enrollments/search", { params: { q } }); // adjust to your actual user-search endpoint
 export const getUserEnrollments = (userId: string) =>
   API.get(`/api/qbo/enrollments/${userId}`);

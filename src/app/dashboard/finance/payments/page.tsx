@@ -166,6 +166,14 @@ export default function PaymentsPage() {
       prev.length === paymentList.length ? [] : paymentList.map((p: any) => p._id)
     );
 
+  const isPaymentDirty = (form: any, p: any) =>
+    Number(form.amount) !== Number(p.amount) ||
+    form.method !== p.method ||
+    (form.referenceNumber || "") !== (p.referenceNumber || "") ||
+    (form.notes || "") !== (p.notes || "");
+
+  const canResync = (p: any) => p.status === "approved" && !!p.qboPaymentId;
+
   const { mutate: addPay, isPending: isAdding } = useMutation({
     mutationFn: addPayment,
     onSuccess: () => { toast.success("Payment added! ✅"); setIsAddOpen(false); queryClient.invalidateQueries({ queryKey: ["payments"] }); },
@@ -174,7 +182,14 @@ export default function PaymentsPage() {
 
   const { mutate: editPay, isPending: isUpdating } = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => updatePayment(id, data),
-    onSuccess: () => { toast.success("Payment updated! ✅"); setEditingPayment(null); queryClient.invalidateQueries({ queryKey: ["payments"] }); },
+    onSuccess: (res: any) => {
+      const qs = res?.data?.qboSync;
+      if (qs?.attempted && !qs.success) toast.error(`Saved, but QuickBooks sync failed: ${qs.error}`);
+      else if (qs?.attempted) toast.success("Payment updated & synced to QuickBooks ✅");
+      else toast.success("Payment updated! ✅");
+      setEditingPayment(null);
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+    },
     onError: () => toast.error("Failed!"),
   });
 
@@ -211,6 +226,19 @@ export default function PaymentsPage() {
     if (!filters.QboLense) return true;
     return getQboActions(p, { onSync: () => { }, syncingId: syncingNowId }).length === 0;
   };
+
+  const editFields: ModalField[] = editingPayment
+    ? [
+      ...editPaymentFields,
+      {
+        name: "resyncQbo",
+        label: "Resync this payment to QuickBooks",
+        type: "checkbox",
+        visible: (form) =>
+          canResync(editingPayment) && isPaymentDirty(form, editingPayment),
+      },
+    ]
+    : editPaymentFields;
 
   return (
     <>
@@ -324,6 +352,7 @@ export default function PaymentsPage() {
                 {p.user?.email && (
                   <p className="text-xs text-gray-400 mt-0.5">{p.user.email}</p>
                 )}
+                {/* <p className="text-green-500 text-xs">{p.user?._id}</p> */}
               </div>
             ),
           },
@@ -395,9 +424,26 @@ export default function PaymentsPage() {
           isOpen={!!editingPayment}
           onClose={() => setEditingPayment(null)}
           title="Edit Payment"
-          fields={editPaymentFields}
-          initialValues={{ amount: editingPayment.amount, method: editingPayment.method, referenceNumber: editingPayment.referenceNumber || "", notes: editingPayment.notes || "" }}
-          onSubmit={(data) => editPay({ id: editingPayment._id, data })}
+          fields={editFields}
+          initialValues={{
+            amount: editingPayment.amount,
+            method: editingPayment.method,
+            referenceNumber: editingPayment.referenceNumber || "",
+            notes: editingPayment.notes || "",
+            resyncQbo: true, // default checked
+          }}
+          onSubmit={(data) =>
+            editPay({
+              id: editingPayment._id,
+              data: {
+                ...data,
+                resyncQbo:
+                  canResync(editingPayment) &&
+                  isPaymentDirty(data, editingPayment) &&
+                  !!data.resyncQbo,
+              },
+            })
+          }
           isLoading={isUpdating}
           mode="edit"
         />

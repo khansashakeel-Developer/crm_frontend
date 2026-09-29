@@ -56,6 +56,7 @@ export type ModalField = {
   required?: boolean;
   disabled?: boolean;
   autoComplete?: string;
+  visible?: (form: Record<string, any>) => boolean;
   uploadType?: "audio" | "video" | "document",
   render?: (value: string | boolean | string[], onChange: (updatedValue: string | boolean | string[]) => void) => React.ReactNode; // custom field ke liye
 };
