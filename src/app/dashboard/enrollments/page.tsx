@@ -156,6 +156,11 @@ function ProgramPicker({
                   >
                     {batch ? batch.name : "Select Batch"}
                   </button>
+
+                  {batch?.mode === "physical" && (
+                    <span className="px-1.5 py-0.5 text-[10px] rounded bg-orange-100 text-orange-700">Physical</span>
+                  )}
+
                   <label className="flex items-center gap-1 text-[10px] text-gray-500 cursor-pointer whitespace-nowrap">
                     <input
                       type="checkbox"
@@ -193,6 +198,7 @@ function EnrollmentsContent() {
     status: "",
     accessStatus: "",
     search: "",
+    mode: "online",
     page: "1",
     limit: "10",
     QboLense: false,
@@ -302,12 +308,12 @@ function EnrollmentsContent() {
   // adminGetBatches — only active batches for dropdown
   const { data: activeBatchesRes } = useQuery({
     queryKey: ["batches-active"],
-    queryFn: () => adminGetBatches({ status: "active" }).then((r) => r.data),
+    queryFn: () => adminGetBatches({ status: "active", mode: "all" }).then((r) => r.data),
   });
 
   const { data: upcomingBatchesRes } = useQuery({
     queryKey: ["batches-upcoming"],
-    queryFn: () => adminGetBatches({ status: "upcoming" }).then((r) => r.data),
+    queryFn: () => adminGetBatches({ status: "upcoming", mode: "all" }).then((r) => r.data),
   });
 
   const { data: qboInvoicesData } = useQuery({
@@ -459,6 +465,15 @@ function EnrollmentsContent() {
         { label: "Extended", value: "EXTENDED" },
         { label: "Restricted", value: "RESTRICTED" },
         { label: "Blocked", value: "BLOCKED" },
+      ],
+    },
+    {
+      type: "select",
+      name: "mode",
+      options: [
+        { label: "Online", value: "online" },
+        { label: "Physical", value: "physical" },
+        { label: "All", value: "all" },
       ],
     },
   ];
@@ -658,7 +673,7 @@ function EnrollmentsContent() {
               filename="enrollments-all"
               label="Export Excel"
               fetchData={async () => {
-                const res = await getAllEnrollments({ limit: 10000 });
+                const res = await getAllEnrollments({ limit: 10000, mode: "all" });
                 const rows = res.data.data ?? [];
 
                 // grouped rows ko flatten karo -> ek row per enrollment
@@ -853,12 +868,15 @@ function EnrollmentsContent() {
                     <p className="text-sm font-medium text-gray-700 leading-tight">
                       {e.program?.name || "—"}
                     </p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
+                    <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
                       {e.batch?.name || "No Batch"}
+                      {e.batch?.mode === "physical" && (
+                        <span className="px-1.5 py-0.5 text-[10px] rounded bg-orange-100 text-orange-700">Physical</span>
+                      )}
                     </p>
-                    {/* <p className="text-[11px] text-gray-400 mt-0.5">
+                    <p className="text-[11px] text-gray-400 mt-0.5">
                       {e._id}
-                    </p> */}
+                    </p>
                     {e.assigned_to ? (
                       <div className="flex gap-2 ">
                         <p className="py-1 text-[10px] text-gray-500">Assigned To</p>

@@ -50,6 +50,7 @@ interface Batch {
   current_students: number;
   status: "upcoming" | "active" | "completed" | "cancelled";
   instructor_id?: string;
+  mode?: "online" | "physical";
 }
 
 // ─── Field Configs ─────────────────────────────────────────────────────────────
@@ -103,6 +104,15 @@ const batchFields = (programs: Program[]): ModalField[] => [
       { label: "Active", value: "active" },
       { label: "Completed", value: "completed" },
       { label: "Cancelled", value: "cancelled" },
+    ],
+  },
+  {
+    name: "mode",
+    label: "Batch Type",
+    type: "select",
+    options: [
+      { label: "Online", value: "online" },
+      { label: "Physical", value: "physical" },
     ],
   },
 ];
@@ -159,10 +169,11 @@ export default function BatchesPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
   const [deletingBatch, setDeletingBatch] = useState<Batch | null>(null);
-    const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState({
     search: "",
     status: "",
     program_id: "",
+    mode: "online",
   });
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -201,6 +212,14 @@ export default function BatchesPage() {
       name: "program_id",
       type: "select",
       options: programs.map((p) => ({ label: p.name, value: p._id })),
+    },
+    {
+      name: "mode",
+      type: "select",
+      options: [
+        { label: "Online", value: "online" },
+        { label: "Physical", value: "physical" },
+      ],
     },
   ];
 
@@ -242,7 +261,7 @@ export default function BatchesPage() {
     },
     onError: () => toast.error("Delete failed!"),
   });
-    // ── Export all batches ──
+  // ── Export all batches ──
   const handleExportAll = async (format: "xlsx" | "csv" | "pdf") => {
     setShowExportMenu(false);
     setIsExporting(true);
@@ -302,7 +321,7 @@ export default function BatchesPage() {
 
   return (
     <ProtectedRoute allowedRoles={["admin", "super_admin", "sales_manager", "finance_manager", "sales_rep"]}>
-            <PageHeader
+      <PageHeader
         title="Batches"
         subtitle="Manage all program batches and enrollments"
         titleIcon={<CalendarDays size={24} />}
@@ -438,6 +457,11 @@ export default function BatchesPage() {
                     <span className="text-xs px-2 py-1 rounded-full font-medium bg-indigo-50 text-indigo-600">
                       {getProgramName(batch)}
                     </span>
+                    {batch.mode === "physical" && (
+                      <span className="text-xs px-2 py-1 rounded-full font-medium bg-orange-100 text-orange-700">
+                        Physical
+                      </span>
+                    )}
                   </div>
                   <h3 className="font-semibold text-gray-800 text-base mb-1">
                     {batch.name}
@@ -552,6 +576,7 @@ export default function BatchesPage() {
             end_date: editingBatch.end_date?.split("T")[0] ?? "",
             max_students: editingBatch.max_students?.toString(),
             status: editingBatch.status,
+            mode: editingBatch.mode ?? "online",
           }}
           onSubmit={(data) => updateBatch({ id: editingBatch._id, data })}
           isLoading={isUpdating}

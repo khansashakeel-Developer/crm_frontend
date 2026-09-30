@@ -604,11 +604,20 @@ export default function ImportButton({ queryKey = "enrollments" }: { queryKey?: 
     queryFn: getNamesPrograms,
   });
 
-  const { data: batchesRes } = useQuery({
+  const { data: activeBatchesRes } = useQuery({
     queryKey: ["batches-active"],
-    queryFn: () => adminGetBatches({ status: "active" }).then((r) => r.data),
+    queryFn: () => adminGetBatches({ status: "active", mode: "all" }).then((r) => r.data),
   });
-  const activeBatches = batchesRes?.data ?? [];
+
+  const { data: upcomingBatchesRes } = useQuery({
+    queryKey: ["batches-upcoming"],
+    queryFn: () => adminGetBatches({ status: "upcoming", mode: "all" }).then((r) => r.data),
+  });
+
+  const activeBatches = [
+    ...(activeBatchesRes?.data ?? []),
+    ...(upcomingBatchesRes?.data ?? []),
+  ];
 
   // ── Reset everything on close ────────────────────────────────────────
   const handleClose = () => {
@@ -821,14 +830,22 @@ export default function ImportButton({ queryKey = "enrollments" }: { queryKey?: 
                     placeholder="— Select Program —"
                     value={selectedProgram}
                     options={programs.map((p: any) => ({ label: p.name, value: p._id }))}
-                    onChange={(e) => setSelectedProgram(e.target.value)}
+                    onChange={(e) => { setSelectedProgram(e.target.value); setSelectedBatch(""); }}
                   />
 
                   <Select
                     label="Batch (optional)"
                     placeholder="— None —"
                     value={selectedBatch}
-                    options={activeBatches.map((b: any) => ({ label: b.name, value: b._id }))}
+                    options={activeBatches
+                      .filter((b: any) => {
+                        const pid = b.program_id?._id || b.program_id;
+                        return !selectedProgram || pid === selectedProgram;
+                      })
+                      .map((b: any) => ({
+                        label: b.mode === "physical" ? `${b.name} (Physical)` : b.name,
+                        value: b._id,
+                      }))}
                     onChange={(e) => setSelectedBatch(e.target.value)}
                   />
 
