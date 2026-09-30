@@ -94,7 +94,7 @@ function EnrollmentCard({ enrollment }: { enrollment: any }) {
                   {enrollment.batch?.name ? `Batch: ${enrollment.batch.name}` : "No batch assigned"}
                 </p> */}
                 {/* Batch Info */}
-                {enrollment.batch &&  (
+                {enrollment.batch && (
                   <div className="flex items-center gap-3 mt-3 p-3 bg-indigo-50 rounded-xl">
                     <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
                       <Calendar size={13} className="text-indigo-600" />
@@ -102,14 +102,14 @@ function EnrollmentCard({ enrollment }: { enrollment: any }) {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-indigo-700">{enrollment.batch.name}</p>
                       {enrollment.batch.date_required !== false && (
-                      <p className="text-xs text-indigo-400 mt-0.5">
-                        {enrollment.batch.start_date
-                          ? new Date(enrollment.batch.start_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-                          : "—"}
-                        {enrollment.batch.end_date && (
-                          <> → {new Date(enrollment.batch.end_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</>
-                        )}
-                      </p>
+                        <p className="text-xs text-indigo-400 mt-0.5">
+                          {enrollment.batch.start_date
+                            ? new Date(enrollment.batch.start_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                            : "—"}
+                          {enrollment.batch.end_date && (
+                            <> → {new Date(enrollment.batch.end_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</>
+                          )}
+                        </p>
                       )}
                     </div>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${enrollment.batch.status === "active" ? "bg-emerald-100 text-emerald-700" :
@@ -403,13 +403,16 @@ export default function UserCourses() {
   });
 
   // safe array
-  const list = Array.isArray(enrollments) ? enrollments
+  const rawList = Array.isArray(enrollments) ? enrollments
     : Array.isArray((enrollments as any)?.data) ? (enrollments as any).data
       : [];
 
+  // physical batch wali enrollments LMS mein nahi dikhani
+  const list = rawList.filter((e: any) => e.batch?.mode !== "physical");
+
   const active = list.filter((e: any) => e.status === "active");
   const suspended = list.filter((e: any) => e.status === "suspended");
-  const completed = list.filter((e: any) => e.status === "completed" || e.isGraduated)
+  const completed = list.filter((e: any) => e.status === "completed" || e.isGraduated);
   return (
     <>
       <PageHeader
