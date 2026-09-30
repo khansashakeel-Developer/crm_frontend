@@ -13,12 +13,22 @@ export default function CorrectInstallmentModal({ invoice, installment, onClose 
   );
   const [reason, setReason] = useState("");
   const [adjustTotal, setAdjustTotal] = useState(false);
+  const [syncQbo, setSyncQbo] = useState(false);
 
   const { mutate: correct, isPending } = useMutation({
     mutationFn: () =>
-      correctPaidInstallment(invoice._id, installment._id, { amount, paidDate, reason, adjustTotal }),
-    onSuccess: () => {
-      toast.success("Payment corrected — journal & balances updated ✅");
+      correctPaidInstallment(invoice._id, installment._id, { amount, paidDate, reason, adjustTotal, syncQbo }),
+    onSuccess: (res: any) => {
+      const q = res?.data?.qboSync;
+      if (q?.status === "failed") {
+        toast.error(`CRM corrected, but QBO sync failed: ${q.message}`);
+      } else if (q?.status === "synced") {
+        toast.success("Payment corrected in CRM & QuickBooks ✅");
+      } else if (q?.status === "skipped") {
+        toast.success(`Payment corrected in CRM. QBO skipped: ${q.message}`);
+      } else {
+        toast.success("Payment corrected — journal & balances updated ✅");
+      }
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       onClose();
     },
@@ -85,6 +95,22 @@ export default function CorrectInstallmentModal({ invoice, installment, onClose 
             <br />
             <span className="text-gray-400">
               If only the collection/receipt was recorded incorrectly, leave this unchecked.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex items-start gap-2 text-xs text-gray-600 mt-3">
+          <input
+            type="checkbox"
+            checked={syncQbo}
+            onChange={(e) => setSyncQbo(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            <strong>Also update in QuickBooks</strong>
+            <br />
+            <span className="text-gray-400">
+              Corrected amount, date and method will be pushed to the linked QBO payment. Leave unchecked to correct in CRM only.
             </span>
           </span>
         </label>

@@ -278,7 +278,10 @@ export const bounceCheque = (
 export const correctPaidInstallment = (
   invoiceId: string,
   installmentId: string,
-  data: { amount?: number; paidDate?: string; method?: string; referenceNumber?: string; notes?: string; reason: string, adjustTotal?: boolean }
+  data: {
+    amount?: number; paidDate?: string; method?: string; referenceNumber?: string;
+    notes?: string; reason: string; adjustTotal?: boolean; syncQbo?: boolean;
+  }
 ) => API.patch(`/api/v1/finance/invoices/${invoiceId}/installments/${installmentId}/correct`, data);
 
 export const updateInstallment = (invoiceId: string, installmentId: string, data: any) =>
