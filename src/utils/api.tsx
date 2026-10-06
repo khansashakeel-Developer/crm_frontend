@@ -852,6 +852,14 @@ export interface AssignRolesParams {
 }
 export const getWebinars = () => API.get("/api/webinars");
 export const getWebinar = (id: string) => API.get(`/api/webinars/${id}`);
+// Uploads a webinar flyer image (multipart field "flyer"); returns { success, url }.
+export const uploadWebinarFlyer = (file: File) => {
+  const fd = new FormData();
+  fd.append("flyer", file);
+  return API.post("/api/v1/announcements/flyer", fd, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 export const createWebinar = (data: any) => API.post("/api/webinars", data);
 export const updateWebinar = (id: string, data: any) => API.put(`/api/webinars/${id}`, data);
 export const deleteWebinar = (id: string) => API.delete(`/api/webinars/${id}`);

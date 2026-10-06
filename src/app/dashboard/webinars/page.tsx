@@ -121,6 +121,7 @@ import { Pencil, Trash2, Users, Video } from "lucide-react";
 import toast from "react-hot-toast";
 import DynamicTable from "@/app/component/dashboard/dynamic-table";
 import FieldBuilder from "./components/field-builder";
+import FlyerUpload from "./components/flyer-upload";
 import Modal from "@/app/component/ui/model/modal";
 import ProtectedRoute from "@/app/component/protected-route";
 import { useAppSelector } from "@/store/hooks";
@@ -199,6 +200,23 @@ export default function WebinarsPage() {
       type: "input",
       inputType: "datetime-local",
       required: true,
+    },
+    {
+      name: "flyerUrl",
+      label: "Announcement flyer",
+      type: "custom",
+      render: (value, onChange) => (
+        <div>
+          <p className="text-sm font-medium text-gray-700 mb-1">Announcement flyer</p>
+          <p className="text-xs text-gray-500 mb-2">Shown alone in the website webinar pop-up.</p>
+          <FlyerUpload value={(value as string) || ""} onChange={onChange} />
+        </div>
+      ),
+    },
+    {
+      name: "announce",
+      label: "Announce on the website (webinar pop-up)",
+      type: "checkbox",
     },
     {
       name: "status",
@@ -350,6 +368,8 @@ export default function WebinarsPage() {
         description: w.description || "",
         date: w.date ? toDatetimeLocalUTC(w.date) : "",
         status: w.status || "draft",
+        flyerUrl: (w as any).flyerUrl || "",
+        announce: !!(w as any).announce,
       });
 
       setEditFields(w.fields || []);

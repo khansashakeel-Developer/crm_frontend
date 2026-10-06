@@ -51,6 +51,8 @@ interface Batch {
   status: "upcoming" | "active" | "completed" | "cancelled";
   instructor_id?: string;
   mode?: "online" | "physical";
+  announce?: boolean;
+  show_in_strip?: boolean;
 }
 
 // ─── Field Configs ─────────────────────────────────────────────────────────────
@@ -114,6 +116,17 @@ const batchFields = (programs: Program[]): ModalField[] => [
       { label: "Online", value: "online" },
       { label: "Physical", value: "physical" },
     ],
+  },
+  // Website announcements: nothing is announced unless this is ticked, and only while the batch is Upcoming with a future start date.
+  {
+    name: "announce",
+    label: "Announce on the website (upcoming trainings window)",
+    type: "checkbox",
+  },
+  {
+    name: "show_in_strip",
+    label: "Show in the scrolling strip under the website menu",
+    type: "checkbox",
   },
 ];
 
@@ -577,6 +590,8 @@ export default function BatchesPage() {
             max_students: editingBatch.max_students?.toString(),
             status: editingBatch.status,
             mode: editingBatch.mode ?? "online",
+            announce: editingBatch.announce ?? false,
+            show_in_strip: editingBatch.show_in_strip ?? false,
           }}
           onSubmit={(data) => updateBatch({ id: editingBatch._id, data })}
           isLoading={isUpdating}
